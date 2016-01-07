@@ -13,9 +13,21 @@ small_explosion_seq = {
         loopCount = 1,
         loopDirection = 'forward'
 }
+med_explosion_seq = {
+        name = 'small_exp',
+        start = 1,
+        count = 5,
+        loopCount = 1,
+        loopDirection = 'forward'
+}
 animations = {
     make_small_explosion = function() 
         local sprite = display.newSprite(explosion_image_sheet, small_explosion_seq)
+        sprite.isVisible = false
+        return sprite
+    end,
+    make_medium_explosion = function() 
+        local sprite = display.newSprite(explosion_image_sheet, med_explosion_seq)
         sprite.isVisible = false
         return sprite
     end,
