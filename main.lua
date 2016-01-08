@@ -318,38 +318,39 @@ playerShip:addEventListener('tap', playerShip)
 -- ** Alien ship functions ** --
 -------------------------------- 
 
-
+local alienTimerRef = nil
 function alienFireTheLaser() 
         local ship = nil
         if (#attackersNames > 0) then 
             while (ship == nil) do
                 ship = attackers[attackersNames[math.random(1,#attackersNames)]]
                 
+            end            
+            print('Attacker random: '..ship.name)
+        
+            local shot = display.newImage("assets/alien_shot.png")
+            print(ship.x, ship.y)
+            shot.x,shot.y = ship.x, ship.y+ ship.height + shot.height * 0.5
+            local params = {
+                time = 600,
+                transition = easing.inOutQuad,
+                onStart = function()
+    --                print('Start shot x: '..shot.x)
+    --                print('Start shot y: '..shot.y)
+                end,
+                onComplete = function()
+    --                print('End shot x: '..shot.x)
+    --                print('End shot y: '..shot.y)
+                    display.remove(shot)
+                end,
+                x=shot.x, 
+                y=1000
+            }
+                shot.transitionId = transition.to(shot, params)
+            else 
+                transition.cancel(alienTimerRef)
             end
-        end
-        c
-        
-        print('Attacker random: '..ship.name)
-        
-        local shot = display.newImage("assets/alien_shot.png")
-        print(ship.x, ship.y)
-        shot.x,shot.y = ship.x, ship.y+ ship.height + shot.height * 0.5
-        local params = {
-            time = 600,
-            transition = easing.inOutQuad,
-            onStart = function()
---                print('Start shot x: '..shot.x)
---                print('Start shot y: '..shot.y)
-            end,
-            onComplete = function()
---                print('End shot x: '..shot.x)
---                print('End shot y: '..shot.y)
-                display.remove(shot)
-            end,
-            x=shot.x, 
-            y=1000
-        }
-    shot.transitionId = transition.to(shot, params)
+            
 end
 
 for k, thisShip in pairs(attackers) do
