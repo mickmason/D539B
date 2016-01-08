@@ -103,7 +103,7 @@ local gameShips = {
                 bodyType = 'dynamic',
                 isSensor = true,
                 categoryFilter = {categoryBits=2, maskBits=16},
-                shipMaxHits = 7,
+                shipMaxHits = 5,
                 killScore = 60,
                 laserPower = 10
             },
@@ -113,7 +113,7 @@ local gameShips = {
                 bodyType = 'dynamic',
                 isSensor = true,
                 categoryFilter = {categoryBits=1, maskBits=16},
-                shipMaxHits = 7,
+                shipMaxHits = 5,
                 killScore = 60,
                 laserPower = 10
             }
@@ -158,6 +158,55 @@ playerShip.isSensor = gameShips.playerShip.isSensor
 playerShip.filter =  gameShips.playerShip.categoryFilter
 playerShip.name = "Player ship"
 
+--Alien ships for this round
+local attackersNames = {'bigShip', 'smallShip1', 'smallShip2'}
+local attackers = {}
+local attackersCount = 0
+for k, v in pairs(attackersNames) do
+    if (v=='bigShip') then
+        attackers[v] = display.newImage("assets/"..gameShips.alienShips.bigShip.image_path)
+        attackers[v].y = 0
+        --attackers[v].strokeWidth = 1
+        attackers[v].name = v
+        attackers[v].shipMaxHits = gameShips.alienShips.bigShip.shipMaxHits
+        attackers[v].killScore = gameShips.alienShips.bigShip.killScore
+        attackers[v].laserPower = gameShips.alienShips.bigShip.laserPower        
+        gameGroup:insert(attackers[v])
+        attackers[v].x = gameGroup.center.x
+        physics.addBody(attackers[v], {shape=gameShips.alienShips.bigShip.shape})
+        attackers[v].isSensor = gameShips.alienShips.bigShip.isSensor
+        attackers[v].idx = attackersCount +1 
+    elseif (v=='smallShip1') then
+        attackers[v] = display.newImage("assets/"..gameShips.alienShips.smallShip1.image_path)
+        attackers[v].y = 64
+        attackers[v].name = v
+        attackers[v].shipMaxHits = gameShips.alienShips.smallShip1.shipMaxHits
+        attackers[v].killScore = gameShips.alienShips.smallShip1.killScore
+        attackers[v].laserPower = gameShips.alienShips.smallShip1.laserPower
+        gameGroup:insert(attackers[v])
+        attackers[v].x = displayCenter.x - (gameGroup.width * 0.25)
+        physics.addBody(attackers[v], {shape=gameShips.alienShips.smallShip1.shape})
+        attackers[v].isSensor = gameShips.alienShips.smallShip1.isSensor
+        attackers[v].idx = attackersCount +1         
+    elseif (v=='smallShip2') then 
+        attackers[v] = display.newImage("assets/"..gameShips.alienShips.smallShip1.image_path)
+        attackers[v].y = 64
+        attackers[v].name = v
+        attackers[v].shipMaxHits = gameShips.alienShips.smallShip1.shipMaxHits
+        attackers[v].killScore = gameShips.alienShips.smallShip1.killScore
+        attackers[v].laserPower = gameShips.alienShips.smallShip1.laserPower
+        gameGroup:insert(attackers[v])
+        attackers[v].x = displayCenter.x + (gameGroup.width * 0.25)
+        physics.addBody(attackers[v], {shape=gameShips.alienShips.smallShip1.shape})
+        attackers[v].isSensor = gameShips.alienShips.smallShip1.isSensor
+        attackers[v].idx = attackersCount +1         
+    end
+    attackers[v].hitCount = 0
+    attackers[v].bodyType = 'dynamic'   
+    attackers[v].filter = {categoryBits=2, maskBits=16}
+    attackers[v].gravityScale = 0   
+    attackersCount = attackersCount + 1
+end
 
 --------------------------
 -- ** Game functions ** --
@@ -166,12 +215,12 @@ playerShip.name = "Player ship"
 function laserOnCollision(self,event)
     if (event.phase == 'began') then
         print('Laser collision began with '..event.other.name)print('Self x,y '..self.x..','..self.y)
---        print('Other x,y '..event.other.x..','..event.other.y)
---        print('Event x,y '..event.x..','..event.y)
         local alienShip = event.other
         alienShip.hitCount = alienShip.hitCount + 1
         local expl = nil
         if (alienShip.hitCount == alienShip.shipMaxHits) then
+            print('Kill alien '..alienShip.name)
+            alienShip.isDead = true
             --create an explosion animation
             expl = animations.make_medium_explosion()
             expl:addEventListener('sprite', animations.sprite_listener)
@@ -179,6 +228,9 @@ function laserOnCollision(self,event)
             expl.isVisible = true
             expl:play()
             incrementScore(alienShip)
+            --table.remove(attackersNames, table.indexOf(alienShip.name))
+            print('IndexOf alienShipName: '..table.indexOf(attackersNames, alienShip.name))
+            print('Remove ship: '..table.remove(attackersNames, table.indexOf(attackersNames, alienShip.name)))
             display.remove(alienShip)
         else
             --create an explosion animation
@@ -220,12 +272,12 @@ function fireTheLaser()
         time = 800,
         transition = easing.inOutQuad,
         onStart = function() 
-            print('Start shot x: '..shot.x)
-            print('Start shot y: '..shot.y)
+--            print('Start shot x: '..shot.x)
+--            print('Start shot y: '..shot.y)
         end,
         onComplete = function() 
-            print('End shot x: '..shot.x)
-            print('End shot y: '..shot.y)
+--            print('End shot x: '..shot.x)
+--            print('End shot y: '..shot.y)
             display.remove(shot)
         end,
         x=shot.x, 
@@ -265,56 +317,46 @@ playerShip:addEventListener('tap', playerShip)
 --------------------------------
 -- ** Alien ship functions ** --
 -------------------------------- 
---Add the ships for the attackers for this round
-local attackersNames = {'bigShip', 'smallShip1', 'smallShip2'}
-local attackers = {}
-for k, v in pairs(attackersNames) do
-    if (v=='bigShip') then
-        attackers[v] = display.newImage("assets/"..gameShips.alienShips.bigShip.image_path)
-        attackers[v].y = 0
-        --attackers[v].strokeWidth = 1
-        attackers[v].name = 'Big ship 1'
-        attackers[v].shipMaxHits = gameShips.alienShips.bigShip.shipMaxHits
-        attackers[v].killScore = gameShips.alienShips.bigShip.killScore
-        attackers[v].laserPower = gameShips.alienShips.bigShip.laserPower        
-        gameGroup:insert(attackers[v])
-        attackers[v].x = gameGroup.center.x
-        physics.addBody(attackers[v], {shape=gameShips.alienShips.bigShip.shape})
-        attackers[v].isSensor = gameShips.alienShips.bigShip.isSensor
-    elseif (v=='smallShip1') then
-        attackers[v] = display.newImage("assets/"..gameShips.alienShips.smallShip1.image_path)
-        attackers[v].y = 64
-        attackers[v].name = 'Small ship 1'
-        attackers[v].shipMaxHits = gameShips.alienShips.smallShip1.shipMaxHits
-        attackers[v].killScore = gameShips.alienShips.smallShip1.killScore
-        attackers[v].laserPower = gameShips.alienShips.smallShip1.laserPower
-        gameGroup:insert(attackers[v])
-        attackers[v].x = displayCenter.x - (gameGroup.width * 0.25)
-        physics.addBody(attackers[v], {shape=gameShips.alienShips.smallShip1.shape})
-        attackers[v].isSensor = gameShips.alienShips.smallShip1.isSensor
-    elseif (v=='smallShip2') then 
-        attackers[v] = display.newImage("assets/"..gameShips.alienShips.smallShip1.image_path)
-        attackers[v].y = 64
-        attackers[v].name = 'Small ship 2'
 
-        attackers[v].shipMaxHits = gameShips.alienShips.smallShip1.shipMaxHits
-        attackers[v].killScore = gameShips.alienShips.smallShip1.killScore
-        attackers[v].laserPower = gameShips.alienShips.smallShip1.laserPower
-        gameGroup:insert(attackers[v])
-        attackers[v].x = displayCenter.x + (gameGroup.width * 0.25)
-        physics.addBody(attackers[v], {shape=gameShips.alienShips.smallShip1.shape})
-        attackers[v].isSensor = gameShips.alienShips.smallShip1.isSensor
-    end
-    attackers[v].hitCount = 0
-    attackers[v].bodyType = 'dynamic'   
-    attackers[v].filter = {categoryBits=2, maskBits=16}
-    attackers[v].gravityScale = 0   
+
+function alienFireTheLaser() 
+        local ship = nil
+        if (#attackersNames > 0) then 
+            while (ship == nil) do
+                ship = attackers[attackersNames[math.random(1,#attackersNames)]]
+                
+            end
+        end
+        c
+        
+        print('Attacker random: '..ship.name)
+        
+        local shot = display.newImage("assets/alien_shot.png")
+        print(ship.x, ship.y)
+        shot.x,shot.y = ship.x, ship.y+ ship.height + shot.height * 0.5
+        local params = {
+            time = 600,
+            transition = easing.inOutQuad,
+            onStart = function()
+--                print('Start shot x: '..shot.x)
+--                print('Start shot y: '..shot.y)
+            end,
+            onComplete = function()
+--                print('End shot x: '..shot.x)
+--                print('End shot y: '..shot.y)
+                display.remove(shot)
+            end,
+            x=shot.x, 
+            y=1000
+        }
+    shot.transitionId = transition.to(shot, params)
+end
+
+for k, thisShip in pairs(attackers) do
+    thisShip.tap = alienFireTheLaser(thisShip)
+    thisShip:addEventListener('tap', thisShip)
 end
 
 
-
-
-
-
-
-
+--local alienFire = function() return alienFireTheLaser(randomShip) end    
+alienTimerRef = timer.performWithDelay(math.random(0,1.3)* 1000, alienFireTheLaser, -1)  
