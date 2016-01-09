@@ -107,22 +107,12 @@ local gameShips = {
                 killScore = 60,
                 laserPower = 10
             },
-            randomShip = {
-                shape = {16,16, 16,-3, 14.45,0.87, 12.73,3.37, 8.53,8.05, 6.43,10.11, 0,16, -6.43,10.11, -8.53,8.05, -12.73,3.37, -14.45,0.87, -16,-3},
-                image_path = 'small_attacker_1.png',
-                bodyType = 'dynamic',
-                isSensor = true,
-                categoryFilter = {categoryBits=1, maskBits=16},
-                shipMaxHits = 5,
-                killScore = 60,
-                laserPower = 10
-            },
 	    alienLaserShot = {
 		shape = {0,-45, 2.50,-23.3, 2.91,0, 2.91,45, -2.91,45, -2.91,0, -2.50,-23.3},
                 image_path = 'alien_shot.png',
                 bodyType = 'dynamic',
                 isSensor = true,
-                categoryFilter = {categoryBits=1, maskBits=4},
+                categoryFilter = {categoryBits=8, maskBits=4},
                 laserPower = 10
 	    }
     },
@@ -131,7 +121,7 @@ local gameShips = {
             image_path = 'player.png',
             bodyType = 'dynamic',
             isSensor = true,
-            ki = 100,
+            ki = 200,
             laserShot = {
                 shape = {0,-85, 5,-23.5, 5,55, -5,55, -5,-23.5 },
                 image_path = 'player_shot.png',
@@ -160,11 +150,11 @@ gameGroup.center = {
 local playerShip = display.newImage(gameGroup, "assets/"..gameShips.playerShip.image_path)
 playerShip.x = displayCenter.x
 playerShip.y = displayHeight - playerShip.height - 50
-physics.addBody(playerShip, {shape=gameShips.playerShip.shape})
+physics.addBody(playerShip, {shape=gameShips.playerShip.shape, filter =  gameShips.playerShip.categoryFilter})
 playerShip.gravityScale = 0
 playerShip.isSensor = gameShips.playerShip.isSensor
-playerShip.filter =  gameShips.playerShip.categoryFilter
 playerShip.name = "Player ship"
+playerShip.ki = gameShips.playerShip.ki
 
 --Alien ships for this round
 local attackersNames = {'bigShip', 'smallShip1', 'smallShip2'}
@@ -222,7 +212,8 @@ end
 --***Player laser shot collision handler **--
 function laserOnCollision(self,event)
     if (event.phase == 'began') then
-        print('Laser collision began with '..event.other.name)print('Self x,y '..self.x..','..self.y)
+        print('Laser collision began with '..event.other.name)
+        print('Self x,y '..self.x..','..self.y)
         local alienShip = event.other
         alienShip.hitCount = alienShip.hitCount + 1
         local expl = nil
@@ -230,7 +221,7 @@ function laserOnCollision(self,event)
             print('Kill alien '..alienShip.name)
             alienShip.isDead = true
             --create an explosion animation
-            expl = animations.make_medium_explosion()
+            expl = animations.make_dead_explosion()
             expl:addEventListener('sprite', animations.sprite_listener)
             expl.x,expl.y = self.x,self.y 
             expl.isVisible = true
@@ -242,7 +233,7 @@ function laserOnCollision(self,event)
             display.remove(alienShip)
         else
             --create an explosion animation
-            expl = animations.make_small_explosion()
+            expl = animations.make_medium_explosion()
             expl:addEventListener('sprite', animations.sprite_listener)
             expl.x,expl.y = self.x,self.y 
             expl.isVisible = true
@@ -263,6 +254,7 @@ function createLaserShot()
     playerLaserShot.x = playerShip.x
     playerLaserShot.y = playerShip.y - playerShip.height* 0.5  - playerLaserShot.height * 0.5 - 10
     physics.addBody(playerLaserShot, {shape=gameShips.playerShip.laserShot.shape, filter= gameShips.playerShip.laserShot.categoryFilter})
+
     playerLaserShot.gravityScale = 0
     playerLaserShot.type = "Laser shot"
     playerLaserShot.name = "Laser shot"
@@ -325,22 +317,49 @@ playerShip:addEventListener('tap', playerShip)
 --------------------------------
 -- ** Alien ship functions ** --
 -------------------------------- 
-
+local alienTimerRef = nil
 -- Alien laser shot collision handler
 function alienLaserOnCollision(self, event)
-    print('Collision at: '..event.x, event.y)
-    if (event.other.shipType == 'playerShip') then
+    print('Collision with player ship at: '..self.x, self.y)
+        
         local shot = self
-        local hitTarget = event.other
-        print('Collision with player ship at: '..event.x, event.y)
-    else 
-        return false
-    end 
+        transition.cancel(shot.transitionId)
+        display.remove(shot)
+        local player = event.other
+        player.ki = player.ki - shot.laserPower
+        local expl = nil
+        if (player.ki == 0) then
+            print("El Player es muerta")
+            expl1 = animations.make_dead_explosion()
+            expl2 = animations.make_dead_explosion()
+            expl3 = animations.make_dead_explosion()
+            expl1:addEventListener('sprite', animations.sprite_listener)
+            expl2:addEventListener('sprite', animations.sprite_listener)
+            expl3:addEventListener('sprite', animations.sprite_listener)
+            expl1.x,expl1.y = shot.x,shot.y 
+            expl2.x,expl2.y = shot.x,shot.y 
+            expl3.x,expl3.y = shot.x,shot.y 
+            
+            expl.isVisible = true
+            expl1.isVisible = true
+            expl2.isVisible = true
+            expl3.isVisible = true
+            expl1:play()
+            expl2:play()
+            expl3:play()
+        else
+            expl = animations.make_medium_explosion()
+            expl:addEventListener('sprite', animations.sprite_listener)
+            expl.x,expl.y = shot.x,shot.y 
+            expl.isVisible = true
+            expl:play()
+        end 
+
     
 end
 
 -- alien laser shot transition ref
-local alienTimerRef = nil
+
 function alienFireTheLaser() 
         local ship = nil
         if (#attackersNames > 0) then 
@@ -350,14 +369,17 @@ function alienFireTheLaser()
 --            print('Attacker random: '..ship.name)
             local alienShot = display.newImage(gameGroup, "assets/"..gameShips.alienShips.alienLaserShot.image_path)
             ship:toFront()
-            print('Ship height: '..ship.height)
             
             alienShot.x,alienShot.y = ship.x, ship.y+ship.height
-            print('alienShot x, y: '..alienShot.x,alienShot.y)
-            physics.addBody(alienShot, {shape=gameShips.alienShips.alienLaserShot.shape, filter= gameShips.alienShips.alienLaserShot.categoryFilter})
+            
+            physics.addBody(alienShot, {shape=gameShips.alienShips.alienLaserShot.shape, filter=gameShips.alienShips.alienLaserShot.categoryFilter})
+--           print('alienShot x, y: '..gameShips.alienShips.alienLaserShot.shape[2])
             alienShot.gravityScale = 0
+            alienShot.isSensor = gameShips.alienShips.alienLaserShot.isSensor
+            alienShot.bodyType = gameShips.alienShips.alienLaserShot.bodyType
             alienShot.type = "AlienLaserShot"
             alienShot.name = "Alien Laser shot"
+            alienShot.laserPower = gameShips.alienShips.alienLaserShot.laserPower
             alienShot.collision = alienLaserOnCollision
             alienShot:addEventListener('collision', alienShot)
             local params = {
@@ -379,7 +401,6 @@ function alienFireTheLaser()
             else 
                 transition.cancel(alienTimerRef)
             end
-            
 end
 
 for k, thisShip in pairs(attackers) do
@@ -388,5 +409,4 @@ for k, thisShip in pairs(attackers) do
 end
 
 
---local alienFire = function() return alienFireTheLaser(randomShip) end    
 alienTimerRef = timer.performWithDelay(math.random(0,1.3)* 1000, alienFireTheLaser, -1)  
