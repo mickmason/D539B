@@ -14,6 +14,7 @@ physics.setReportCollisionsInContentCoordinates( true)
 -- * Display dimensions * --
 local displayWidth = display.contentWidth
 local displayHeight = display.contentHeight
+local pageWidth = displayWidth - 20
 local displayCenter = {
     x = display.contentWidth * 0.5,
     y = display.contentHeight * 0.5
@@ -29,8 +30,12 @@ local pagePadding = {
 -----------------
 -- ** Pages ** --
 -----------------
+-- app group --
+ 
 -- ** Landing page group ** --
 local landingPageGroup = display.newGroup() 
+landingPageGroup.width = pageWidth --5px padding on either side
+landingPageGroup.height = displayHeight - 30 --30px padding on the top of the game area
 local topScoresGroup = display.newGroup() 
 landingPageGroup:insert(topScoresGroup)
 
@@ -46,7 +51,7 @@ gamePageGroup.maxTop = displayCenter.y - gamePageGroup.height * 0.5
 gamePageGroup.maxBottom = displayCenter.y + gamePageGroup.height * 0.5 
 
 player = {
-    uname = 'Michael'
+    username = 'michael__'
 }
 -- * Some timer references for alien behaviours * -- 
 local alienShooterTimerRef = nil
@@ -89,7 +94,7 @@ lfIndicator:toFront()
 -- Game over text
 local gameOver = display.newText({parent=gameUIGroup, text='Game over', font=gameBaseFont, fontSize=32, height=100, align='center', width=(displayWidth*0.5)})
 gameOver.isVisible = false
-gameOver.x, gameOver.y = displayCenter.x, displayCenter.y
+gameOver.x, gameOver.y = displayCenter.x, displayCenter.y - displayHeight * 0.23
 local gameOverScore = display.newText({parent=gameUIGroup, text='Score', font=gameBaseFont, fontSize=22, height=100, align='center', width=(displayWidth*0.5)})
 gameOverScore.isVisible = false
 gameOverScore.x, gameOverScore.y = displayCenter.x, gameOver.y + 50
@@ -100,9 +105,7 @@ gameUIGroup:insert(lfIndicator)
 backToHomeButton:setFillColor(0.3,0.3,0.3)
 backToHomeButton.isVisible = false
 local backToHomeButtonText = display.newText({parent=gameUIGroup, text='Back to home', font=gameBaseFont, fontSize=18, height=backToHomeButton.height, align='center', width=(displayWidth*0.5)})
-print(backToHomeButton.y)
 backToHomeButtonText.x, backToHomeButtonText.y = backToHomeButton.x, backToHomeButton.y+6
-print(backToHomeButtonText.y)
 backToHomeButtonText.isVisible = false
 backToHomeButton:toBack()
 
@@ -144,6 +147,57 @@ end
 --------------------------------------------------------------------
 ---- -- -- -- --  ** End game UI elements ** -- -- -- -- -- -- -- -- 
 --------------------------------------------------------------------
+-- from JSON --
+local topScores = {
+    {
+        username = {
+            'michael__'
+        },
+        scores = {
+            220, 220, 160, 120, 100
+        },
+        password = 'passw0rd'
+    }
+}
+-- ** user top scores ** --
+local scoresData = {
+    userScores = {
+    }
+} 
+for i in ipairs(topScores) do
+    for k,v in pairs(topScores[i]) do
+        if (k == 'scores') then
+            scoresData.userScores = v
+        end
+    end
+end
+for i in ipairs(scoresData.userScores) do
+       print(scoresData.userScores[i])
+end
+
+function updateScoresData() 
+    local highScoreIndex = 0
+    local userScore = tonumber(score.text)
+        
+        for i in ipairs(scoresData.userScores) do
+            
+            if (userScore > scoresData.userScores[i] or userScore == scoresData.userScores[i]) then
+                print('User score: '..userScore)
+                print('Scores data i: '..scoresData.userScores[i])
+                highScoreIndex = i
+                break
+            end
+        end
+        if (highScoreIndex > 1) then 
+            table.insert(scoresData.userScores, highScoreIndex, userScore)
+            table.remove(scoresData.userScores, #scoresData.userScores)
+        end
+
+    for i in ipairs(scoresData.userScores) do
+       print(scoresData.userScores[i])
+    end
+end
+
 -- ** Game start, stop, pause ** --
 function pauseGame()
     timer.pause(alienMovementTimerRef)
@@ -157,6 +211,7 @@ function endGame()
     --alien shots timer
     timer.cancel(alienShooterTimerRef)
     timer.cancel(clockTimerRef)
+    updateScoresData()
     gameOverScore.text = 'Score: '..score.text
     gameOverScore.isVisible = true
     gameOver.isVisible = true
@@ -167,6 +222,8 @@ end
 -----------------------------------------
 -- ** Game objects to and from JSON ** --
 -----------------------------------------
+
+
 local gameShips = {
     alienShips = {
             bigShip = {
@@ -203,7 +260,7 @@ local gameShips = {
             image_path = 'player.png',
             bodyType = 'dynamic',
             isSensor = true,
-            ki = 120,
+            ki = 300,
             laserShot = {
                 shape = {0,-85, 5,-23.5, 5,55, -5,55, -5,-23.5 },
                 image_path = 'player_shot.png',
@@ -472,7 +529,6 @@ function alienFireTheLaser()
             while (ship == nil) do
                 ship = attackers[attackersNames[math.random(1,#attackersNames)]]
             end             
-            print('Attacker random: '..ship.name)
             local alienShot = display.newImage(gameGroup, "assets/"..gameShips.alienShips.alienLaserShot.image_path)
             ship:toFront()
             alienShot.x,alienShot.y = ship.x, ship.y+ship.height
@@ -515,7 +571,6 @@ local aliensMovementTransitionID = nil
 local    yUp = false
 local moveRtl = false
 function moveAliens() 
-    print('moveAliens')
     --how far left and right they can go
     local maxLeft = 10
     local maxRight = displayWidth - 10
@@ -525,19 +580,13 @@ function moveAliens()
     local xMove = displayWidth / 31
 
     if (moveRtl == true) then
-        print('Move rtl')
         if (yUp ==  false) then
             for i=1, #attackersNames do
                 attackers[attackersNames[i]].x, attackers[attackersNames[i]].y = attackers[attackersNames[i]].x-xMove, attackers[attackersNames[i]].y+yMove 
                 if (attackers[attackersNames[i]].isMaxLeft) then
-                    print(attackers[attackersNames[i]].name..' is max left.')
                     if (attackers[attackersNames[i]].x - (attackers[attackersNames[i]].width*0.5) - xMove < maxLeft) then
-                        print('Max left reached.')
                         moveRtl = false
                     end
---                    
---                else 
---                    print(attackers[attackersNames[i]].name..' is not max left.')
                 end
             end
             yUp = true
@@ -547,30 +596,20 @@ function moveAliens()
                 if (attackers[attackersNames[i]].isMaxLeft) then
                     print(attackers[attackersNames[i]].name..' is max left.')
                     if (attackers[attackersNames[i]].x - (attackers[attackersNames[i]].width*0.5) - xMove < maxLeft) then
-                        print('Max left reached.')
                         moveRtl = false
                     end
---                    
---                else 
---                    print(attackers[attackersNames[i]].name..' is not max left.')
                 end
             end            
             yUp = false
         end    
     else
-        print('Move ltr')
         if (yUp ==  false) then
             for i=1, #attackersNames do
                 attackers[attackersNames[i]].x, attackers[attackersNames[i]].y = attackers[attackersNames[i]].x+xMove, attackers[attackersNames[i]].y+yMove 
                 if (attackers[attackersNames[i]].isMaxRight) then
-                    print(attackers[attackersNames[i]].name..' is max right.')
                     if (attackers[attackersNames[i]].x + (attackers[attackersNames[i]].width*0.5) + xMove > maxRight) then
-                        print('Max right reached.')
                         moveRtl = true
                     end
---                    
---                else 
---                    print(attackers[attackersNames[i]].name..' is not max left.')
                 end
             end
             yUp = true
@@ -578,13 +617,9 @@ function moveAliens()
             for i=1, #attackersNames do
                 attackers[attackersNames[i]].x, attackers[attackersNames[i]].y = attackers[attackersNames[i]].x+xMove, attackers[attackersNames[i]].y-yMove
                 if (attackers[attackersNames[i]].isMaxRight) then
-                    print(attackers[attackersNames[i]].name..' is max right.')
                     if (attackers[attackersNames[i]].x + (attackers[attackersNames[i]].width*0.5) + xMove > maxRight) then
-                        print('Max right reached.')
-                        
                         moveRtl = true
                     end
-
                 end
             end         
             if (moveRtl) then
@@ -598,7 +633,6 @@ function moveAliens()
 end
 
 function startGame() 
-    
     alienMovementTimerRef = timer.performWithDelay(1000, moveAliens, -1)  
     --alien shots timer
     alienShooterTimerRef = timer.performWithDelay(600, alienFireTheLaser, -1) 
