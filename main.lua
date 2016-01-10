@@ -1,5 +1,6 @@
 require "CiderDebugger";
 animations = require("animations")
+
 local physics = require "physics"
 
 -----------------------------
@@ -25,6 +26,13 @@ local gameBaseFont = 'Courier'
 local pagePadding = {
     top = 30, bottom = 10, left = 15, right = 15
 }
+-----------------
+-- ** Pages ** --
+-----------------
+-- ** Landing page group ** --
+local landingPageGroup = display.newGroup() 
+local topScoresGroup = display.newGroup() 
+landingPageGroup:insert(topScoresGroup)
 
 -- ** Game page group ** --
 ---- * dimenstions * -----
@@ -40,6 +48,9 @@ gamePageGroup.maxBottom = displayCenter.y + gamePageGroup.height * 0.5
 player = {
     uname = 'Michael'
 }
+-- * Some timer references for alien behaviours * -- 
+local alienShooterTimerRef = nil
+local alienMovementTimerRef = nil
 --------------------------------------------------------------------
 -- ** Game UI elements: start button, score, timer, life force ** --
 --------------------------------------------------------------------
@@ -57,20 +68,47 @@ local countdown = display.newText({parent=gameUIGroup, text='01:00', font=gameBa
 countdown.anchorX, countdown.anchorY  = 0,0
 countdown.y = -25
 countdown.x = 20
---Game lasts 1 minute
-local gameLength = 1 * 60
--- Lifeforce indicator
 
+-- Game lasts 1 minute
+local gameLength = 1 * 60
+-- Game clock timer ref
+local clockTimerRef = 0
+-- Lifeforce indicator
 local lfIndicator = display.newRect(displayWidth, displayHeight, displayWidth*0.23, 3, 2)
+gameUIGroup:insert(lfIndicator)
 lfIndicator.x = displayWidth-lfIndicator.width - 10 
 lfIndicator.initialWidth = lfIndicator.width
 lfIndicator:setFillColor(0.1,0.8,0.1)
 lfIndicator.anchorX, lfIndicator.anchorY  = 0,0
 local lfIndicatorBG = display.newRect(lfIndicator.x - 1, lfIndicator.y -1, lfIndicator.width+2, lfIndicator.height+2, 2)
+gameUIGroup:insert(lfIndicatorBG)
 lfIndicatorBG.anchorX, lfIndicatorBG.anchorY = 0,0
 lfIndicatorBG:setFillColor(0.3,0.3,0.3)
 lfIndicator:toFront()
 
+-- Game over text
+local gameOver = display.newText({parent=gameUIGroup, text='Game over', font=gameBaseFont, fontSize=32, height=100, align='center', width=(displayWidth*0.5)})
+gameOver.isVisible = false
+gameOver.x, gameOver.y = displayCenter.x, displayCenter.y
+local gameOverScore = display.newText({parent=gameUIGroup, text='Score', font=gameBaseFont, fontSize=22, height=100, align='center', width=(displayWidth*0.5)})
+gameOverScore.isVisible = false
+gameOverScore.x, gameOverScore.y = displayCenter.x, gameOver.y + 50
+
+--Back to home button
+local backToHomeButton = display.newRect(gameOverScore.x, gameOverScore.y+20, displayWidth*0.45, 34, 2)
+gameUIGroup:insert(lfIndicator)
+backToHomeButton:setFillColor(0.3,0.3,0.3)
+backToHomeButton.isVisible = false
+local backToHomeButtonText = display.newText({parent=gameUIGroup, text='Back to home', font=gameBaseFont, fontSize=18, height=backToHomeButton.height, align='center', width=(displayWidth*0.5)})
+print(backToHomeButton.y)
+backToHomeButtonText.x, backToHomeButtonText.y = backToHomeButton.x, backToHomeButton.y+6
+print(backToHomeButtonText.y)
+backToHomeButtonText.isVisible = false
+backToHomeButton:toBack()
+
+function backToHomeButtonTap() 
+    --do paging back to landing page
+end
 --countdown function
 function timerCount() 
     gameLength = gameLength - 1
@@ -80,13 +118,13 @@ function timerCount()
 end
 
 function startTimer() 
-    timerRef = timer.performWithDelay(1000, timerCount, gameLength)
+    clockTimerRef = timer.performWithDelay(1000, timerCount, gameLength)
 end
 function pauseTimer() 
-    if (timerRef ~= nil) then timer.pause(timerRef) end
+    if (clockTimerRef ~= nil) then timer.pause(clockTimerRef) end
 end
-function pauseTimer() 
-    if (timerRef ~= nil) then timer.resume(timerRef) end
+function resumeTimer() 
+    if (clockTimerRef ~= nil) then timer.resume(clockTimerRef) end
 end
 
 --function to decrement the life force indicator
@@ -103,9 +141,32 @@ function incrementScore(hitShip)
     score.score = score.score + hitShip.killScore
     score.text = score.score
 end
------------------------------
--- ** Game objects JSON ** --
------------------------------
+--------------------------------------------------------------------
+---- -- -- -- --  ** End game UI elements ** -- -- -- -- -- -- -- -- 
+--------------------------------------------------------------------
+-- ** Game start, stop, pause ** --
+function pauseGame()
+    timer.pause(alienMovementTimerRef)
+    --alien shots timer
+    timer.pause(alienShooterTimerRef)
+
+    pauseTimer()
+end
+function endGame()
+    timer.cancel(alienMovementTimerRef)
+    --alien shots timer
+    timer.cancel(alienShooterTimerRef)
+    timer.cancel(clockTimerRef)
+    gameOverScore.text = 'Score: '..score.text
+    gameOverScore.isVisible = true
+    gameOver.isVisible = true
+    backToHomeButton.isVisible = true
+    backToHomeButtonText.isVisible = true
+end
+
+-----------------------------------------
+-- ** Game objects to and from JSON ** --
+-----------------------------------------
 local gameShips = {
     alienShips = {
             bigShip = {
@@ -142,7 +203,7 @@ local gameShips = {
             image_path = 'player.png',
             bodyType = 'dynamic',
             isSensor = true,
-            ki = 80,
+            ki = 120,
             laserShot = {
                 shape = {0,-85, 5,-23.5, 5,55, -5,55, -5,-23.5 },
                 image_path = 'player_shot.png',
@@ -177,7 +238,6 @@ playerShip.isSensor = gameShips.playerShip.isSensor
 playerShip.name = "Player ship"
 playerShip.ki = gameShips.playerShip.ki
 playerShip.startKi = playerShip.ki
-
 
 --Alien ships for this round
 local attackersNames = {'bigShip', 'smallShip1', 'smallShip2'}
@@ -261,6 +321,7 @@ function laserOnCollision(self,event)
                 wasMaxRight = true
             end
             print('Remove ship: '..table.remove(attackersNames, table.indexOf(attackersNames, alienShip.name)))
+            -- need this for alien movement across the screen - which are the right and leftmost ships
             if (wasMaxLeft or wasMaxRight) then
                 local smallestX = 0
                 local biggestX = 0
@@ -274,9 +335,12 @@ function laserOnCollision(self,event)
                         attackers[attackersNames[i]].isMaxRight = true
                     end
                 end
-                
             end
             display.remove(alienShip)
+            if (#attackersNames == 0) then
+                -- Game over
+                endGame()
+            end
         else
             --create an explosion animation
             expl = animations.make_medium_explosion()
@@ -300,7 +364,6 @@ function createLaserShot()
     playerLaserShot.x = playerShip.x
     playerLaserShot.y = playerShip.y - playerShip.height* 0.5  - playerLaserShot.height * 0.5 - 10
     physics.addBody(playerLaserShot, {shape=gameShips.playerShip.laserShot.shape, filter= gameShips.playerShip.laserShot.categoryFilter})
-
     playerLaserShot.gravityScale = 0
     playerLaserShot.type = "Laser shot"
     playerLaserShot.name = "Laser shot"
@@ -368,7 +431,7 @@ playerShip:addEventListener('tap', playerShip)
 --------------------------------
 -- ** Alien ship functions ** --
 -------------------------------- 
-local alienTimerRef = nil
+
 -- Alien laser shot collision handler
 function alienLaserOnCollision(self, event)
     print('Collision with player ship at: '..self.x, self.y)
@@ -383,23 +446,16 @@ function alienLaserOnCollision(self, event)
         if (player.ki == 0) then
             print("El Player es muerta")
             decrementLfIndicator(lfIndicator.width-1)
-            expl1 = animations.make_dead_explosion()
-            expl2 = animations.make_dead_explosion()
-            expl3 = animations.make_dead_explosion()
-            expl1:addEventListener('sprite', animations.sprite_listener)
-            expl2:addEventListener('sprite', animations.sprite_listener)
-            expl3:addEventListener('sprite', animations.sprite_listener)
-            expl1.x,expl1.y = shot.x,shot.y 
-            expl2.x,expl2.y = shot.x,shot.y 
-            expl3.x,expl3.y = shot.x,shot.y 
-            expl1.isVisible = true
-            expl2.isVisible = true
-            expl3.isVisible = true
-            expl1:play()
-            expl2:play()
-            expl3:play()
+            expl = animations.make_dead_explosion()
+
+            expl:addEventListener('sprite', animations.sprite_listener)
+
+            expl.x,expl.y = shot.x,shot.y 
+            expl.isVisible = true
+            expl:play()
             display.remove(playerShip)
-            
+            -- Game over
+            endGame()
         else
             expl = animations.make_medium_explosion()
             expl:addEventListener('sprite', animations.sprite_listener)
@@ -448,17 +504,12 @@ function alienFireTheLaser()
             }
                 alienShot.transitionId = transition.to(alienShot, params)
             else 
-                timer.cancel(alienTimerRef)
+                timer.cancel(alienShooterTimerRef)
+                
             end
 end
 
---some temp tap handlers for aliens - for debugging
---for k, thisShip in pairs(attackers) do
---    thisShip.tap = alienFireTheLaser(thisShip)
---    thisShip:addEventListener('tap', thisShip)
---end
-
---Move the aliens across the screen
+-- * Move the aliens across the screen * --
 local aliensMovementTransitionID = nil
 --Should the move be up or down on the y axis
 local    yUp = false
@@ -533,9 +584,7 @@ function moveAliens()
                         
                         moveRtl = true
                     end
---                    
---                else 
---                    print(attackers[attackersNames[i]].name..' is not max left.')
+
                 end
             end         
             if (moveRtl) then
@@ -548,6 +597,12 @@ function moveAliens()
     end 
 end
 
-local alienMovementTimerRef = timer.performWithDelay(1000, moveAliens, 30)  
---alien shots timer
-alienTimerRef = timer.performWithDelay(math.random(0,1.3)* 1000, alienFireTheLaser, -1)  
+function startGame() 
+    
+    alienMovementTimerRef = timer.performWithDelay(1000, moveAliens, -1)  
+    --alien shots timer
+    alienShooterTimerRef = timer.performWithDelay(600, alienFireTheLaser, -1) 
+    startTimer()
+end
+
+startGame()

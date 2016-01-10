@@ -22,7 +22,7 @@ dead_explosion_seq = {
         name = 'dead_exp',
         start = 3,
         count = 8,
-        loopCount = 1,
+        loopCount = 2,
         loopDirection = 'forward'
 }
 animations = {

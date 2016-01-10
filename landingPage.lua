@@ -1,0 +1,5 @@
+
+    landingPageGroup = display.newGroup()
+    
+
+
