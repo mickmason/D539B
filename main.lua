@@ -5,8 +5,6 @@ local physics = require "physics"
 -----------------------------
 -- ** Global properties ** --
 -----------------------------
-
-
 -- * physics envirionment * --
 physics.start()
 physics.setReportCollisionsInContentCoordinates(true)
@@ -28,7 +26,8 @@ local pagePadding = {
     top = 30, bottom = 10, left = 15, right = 15
 }
 
--- * Game page group dimenstions * --
+-- ** Game page group ** --
+---- * dimenstions * -----
 local gamePageGroup = display.newGroup()
 -- max widths and game boundaries --
 gamePageGroup.width = displayWidth - 10 --5px padding on either side
@@ -41,25 +40,38 @@ gamePageGroup.maxBottom = displayCenter.y + gamePageGroup.height * 0.5
 player = {
     uname = 'Michael'
 }
-------------------------------------------
--- ** Game UI elements: score, timer ** --
-------------------------------------------
+--------------------------------------------------------------------
+-- ** Game UI elements: start button, score, timer, life force ** --
+--------------------------------------------------------------------
 local gameUIGroup = display.newGroup()
 gamePageGroup:insert(gameUIGroup)
+-- score
 local score = display.newText({parent=gameUIGroup, text='100', font=gameBaseFont, fontSize=22, height=100, align='right', width=(displayWidth*0.5)-20})
 score.anchorX, score.anchorY  = 0,0
 score.x = displayWidth*0.5
 score.y = -25
 score.score = 0
 score.text = score.score
+--countdown
 local countdown = display.newText({parent=gameUIGroup, text='01:00', font=gameBaseFont, fontSize=22, height=100, align='left', width=(displayWidth*0.5)})
 countdown.anchorX, countdown.anchorY  = 0,0
 countdown.y = -25
 countdown.x = 20
-
 --Game lasts 1 minute
 local gameLength = 1 * 60
---Timer function
+-- Lifeforce indicator
+
+local lfIndicator = display.newRect(displayWidth, displayHeight, displayWidth*0.23, 3, 2)
+lfIndicator.x = displayWidth-lfIndicator.width - 10 
+lfIndicator.initialWidth = lfIndicator.width
+lfIndicator:setFillColor(0.1,0.8,0.1)
+lfIndicator.anchorX, lfIndicator.anchorY  = 0,0
+local lfIndicatorBG = display.newRect(lfIndicator.x - 1, lfIndicator.y -1, lfIndicator.width+2, lfIndicator.height+2, 2)
+lfIndicatorBG.anchorX, lfIndicatorBG.anchorY = 0,0
+lfIndicatorBG:setFillColor(0.3,0.3,0.3)
+lfIndicator:toFront()
+
+--countdown function
 function timerCount() 
     gameLength = gameLength - 1
     local mins = math.floor(gameLength/60)
@@ -77,6 +89,15 @@ function pauseTimer()
     if (timerRef ~= nil) then timer.resume(timerRef) end
 end
 
+--function to decrement the life force indicator
+function decrementLfIndicator(decUnit)
+    lfIndicator.width = lfIndicator.width - decUnit
+    if (lfIndicator.width <= lfIndicator.initialWidth*0.5) then
+        lfIndicator:setFillColor(1, 0.388, 0.278)
+    elseif (lfIndicator.width <= lfIndicator.initialWidth*0.3333) then
+        lfIndicator:setFillColor(1, 0, 0)
+    end
+end
 --increment the score - takes an alien ships and gets its hit score
 function incrementScore(hitShip)
     score.score = score.score + hitShip.killScore
@@ -121,7 +142,7 @@ local gameShips = {
             image_path = 'player.png',
             bodyType = 'dynamic',
             isSensor = true,
-            ki = 200,
+            ki = 80,
             laserShot = {
                 shape = {0,-85, 5,-23.5, 5,55, -5,55, -5,-23.5 },
                 image_path = 'player_shot.png',
@@ -155,6 +176,8 @@ playerShip.gravityScale = 0
 playerShip.isSensor = gameShips.playerShip.isSensor
 playerShip.name = "Player ship"
 playerShip.ki = gameShips.playerShip.ki
+playerShip.startKi = playerShip.ki
+
 
 --Alien ships for this round
 local attackersNames = {'bigShip', 'smallShip1', 'smallShip2'}
@@ -199,6 +222,7 @@ for k, v in pairs(attackersNames) do
         attackers[v].isSensor = gameShips.alienShips.smallShip1.isSensor
         attackers[v].idx = attackersCount +1         
     end
+     
     attackers[v].hitCount = 0
     attackers[v].bodyType = 'dynamic'   
     attackers[v].filter = {categoryBits=2, maskBits=16}
@@ -265,25 +289,30 @@ function createLaserShot()
 end
 --Function which fires the player laser
 function fireTheLaser()
-    local shot = createLaserShot()
-    shot.x = playerShip.x
-    shot.isVisible = true
-    local params = {
-        time = 800,
-        transition = easing.inOutQuad,
-        onStart = function() 
---            print('Start shot x: '..shot.x)
---            print('Start shot y: '..shot.y)
-        end,
-        onComplete = function() 
---            print('End shot x: '..shot.x)
---            print('End shot y: '..shot.y)
-            display.remove(shot)
-        end,
-        x=shot.x, 
-        y=-1000
-    }
-    shot.transitionId =  transition.to(shot, params)
+    if (playerShip) then
+        local shot = createLaserShot()
+        shot.x = playerShip.x
+        shot.isVisible = true
+        local params = {
+            time = 800,
+            transition = easing.inOutQuad,
+            onStart = function() 
+    --            print('Start shot x: '..shot.x)
+    --            print('Start shot y: '..shot.y)
+            end,
+            onComplete = function() 
+    --            print('End shot x: '..shot.x)
+    --            print('End shot y: '..shot.y)
+                display.remove(shot)
+            end,
+            x=shot.x, 
+            y=-1000
+        }
+        shot.transitionId =  transition.to(shot, params)        
+    else 
+        return false
+    end
+
 end
 
 --Player taps ship
@@ -321,15 +350,17 @@ local alienTimerRef = nil
 -- Alien laser shot collision handler
 function alienLaserOnCollision(self, event)
     print('Collision with player ship at: '..self.x, self.y)
-        
         local shot = self
         transition.cancel(shot.transitionId)
         display.remove(shot)
         local player = event.other
         player.ki = player.ki - shot.laserPower
+        print(shot.lfDecrementUnit)
+        decrementLfIndicator(shot.lfDecrementUnit)
         local expl = nil
         if (player.ki == 0) then
             print("El Player es muerta")
+            decrementLfIndicator(lfIndicator.width-1)
             expl1 = animations.make_dead_explosion()
             expl2 = animations.make_dead_explosion()
             expl3 = animations.make_dead_explosion()
@@ -339,14 +370,14 @@ function alienLaserOnCollision(self, event)
             expl1.x,expl1.y = shot.x,shot.y 
             expl2.x,expl2.y = shot.x,shot.y 
             expl3.x,expl3.y = shot.x,shot.y 
-            
-            expl.isVisible = true
             expl1.isVisible = true
             expl2.isVisible = true
             expl3.isVisible = true
             expl1:play()
             expl2:play()
             expl3:play()
+            display.remove(playerShip)
+            
         else
             expl = animations.make_medium_explosion()
             expl:addEventListener('sprite', animations.sprite_listener)
@@ -356,7 +387,7 @@ function alienLaserOnCollision(self, event)
         end 
 
     
-end
+end 
 
 -- alien laser shot transition ref
 
@@ -365,8 +396,9 @@ function alienFireTheLaser()
         if (#attackersNames > 0) then 
             while (ship == nil) do
                 ship = attackers[attackersNames[math.random(1,#attackersNames)]]
-            end            
---            print('Attacker random: '..ship.name)
+            end 
+            
+            print('Attacker random: '..ship.name)
             local alienShot = display.newImage(gameGroup, "assets/"..gameShips.alienShips.alienLaserShot.image_path)
             ship:toFront()
             
@@ -380,6 +412,8 @@ function alienFireTheLaser()
             alienShot.type = "AlienLaserShot"
             alienShot.name = "Alien Laser shot"
             alienShot.laserPower = gameShips.alienShips.alienLaserShot.laserPower
+            --The life force indicator decrememnt unit is used to decrement the life force indicator when the player ship is hit
+            alienShot.lfDecrementUnit = (lfIndicator.initialWidth/playerShip.startKi) * alienShot.laserPower               
             alienShot.collision = alienLaserOnCollision
             alienShot:addEventListener('collision', alienShot)
             local params = {
@@ -399,7 +433,7 @@ function alienFireTheLaser()
             }
                 alienShot.transitionId = transition.to(alienShot, params)
             else 
-                transition.cancel(alienTimerRef)
+                timer.cancel(alienTimerRef)
             end
 end
 
@@ -407,6 +441,4 @@ for k, thisShip in pairs(attackers) do
     thisShip.tap = alienFireTheLaser(thisShip)
     thisShip:addEventListener('tap', thisShip)
 end
-
-
 alienTimerRef = timer.performWithDelay(math.random(0,1.3)* 1000, alienFireTheLaser, -1)  
