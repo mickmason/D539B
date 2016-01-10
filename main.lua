@@ -208,7 +208,8 @@ for k, v in pairs(attackersNames) do
         attackers[v].x = displayCenter.x - (gameGroup.width * 0.25)
         physics.addBody(attackers[v], {shape=gameShips.alienShips.smallShip1.shape})
         attackers[v].isSensor = gameShips.alienShips.smallShip1.isSensor
-        attackers[v].idx = attackersCount +1         
+        attackers[v].idx = attackersCount +1       
+        attackers[v].isMaxLeft = true
     elseif (v=='smallShip2') then 
         attackers[v] = display.newImage("assets/"..gameShips.alienShips.smallShip1.image_path)
         attackers[v].y = 64
@@ -221,6 +222,7 @@ for k, v in pairs(attackersNames) do
         physics.addBody(attackers[v], {shape=gameShips.alienShips.smallShip1.shape})
         attackers[v].isSensor = gameShips.alienShips.smallShip1.isSensor
         attackers[v].idx = attackersCount +1         
+        attackers[v].isMaxRight = true
     end
      
     attackers[v].hitCount = 0
@@ -251,9 +253,29 @@ function laserOnCollision(self,event)
             expl.isVisible = true
             expl:play()
             incrementScore(alienShip)
-            --table.remove(attackersNames, table.indexOf(alienShip.name))
-            print('IndexOf alienShipName: '..table.indexOf(attackersNames, alienShip.name))
+            local wasMaxLeft = false
+            if (alienShip.isMaxLeft) then
+                wasMaxLeft = true
+            end
+            if (alienShip.isMaxRight) then
+                wasMaxRight = true
+            end
             print('Remove ship: '..table.remove(attackersNames, table.indexOf(attackersNames, alienShip.name)))
+            if (wasMaxLeft or wasMaxRight) then
+                local smallestX = 0
+                local biggestX = 0
+                for i=1, #attackersNames do
+                    if (attackers[attackersNames[i]].x < smallestX) then
+                        smallestX = attackers[attackersNames[i]].x
+                        attackers[attackersNames[i]].isMaxLeft = true
+                    end
+                    if (attackers[attackersNames[i]].x > biggestX) then
+                        biggestX = attackers[attackersNames[i]].x
+                        attackers[attackersNames[i]].isMaxRight = true
+                    end
+                end
+                
+            end
             display.remove(alienShip)
         else
             --create an explosion animation
@@ -385,27 +407,20 @@ function alienLaserOnCollision(self, event)
             expl.isVisible = true
             expl:play()
         end 
-
-    
 end 
 
--- alien laser shot transition ref
-
+-- alien laser shoots player
 function alienFireTheLaser() 
         local ship = nil
         if (#attackersNames > 0) then 
             while (ship == nil) do
                 ship = attackers[attackersNames[math.random(1,#attackersNames)]]
-            end 
-            
+            end             
             print('Attacker random: '..ship.name)
             local alienShot = display.newImage(gameGroup, "assets/"..gameShips.alienShips.alienLaserShot.image_path)
             ship:toFront()
-            
             alienShot.x,alienShot.y = ship.x, ship.y+ship.height
-            
             physics.addBody(alienShot, {shape=gameShips.alienShips.alienLaserShot.shape, filter=gameShips.alienShips.alienLaserShot.categoryFilter})
---           print('alienShot x, y: '..gameShips.alienShips.alienLaserShot.shape[2])
             alienShot.gravityScale = 0
             alienShot.isSensor = gameShips.alienShips.alienLaserShot.isSensor
             alienShot.bodyType = gameShips.alienShips.alienLaserShot.bodyType
@@ -437,8 +452,102 @@ function alienFireTheLaser()
             end
 end
 
-for k, thisShip in pairs(attackers) do
-    thisShip.tap = alienFireTheLaser(thisShip)
-    thisShip:addEventListener('tap', thisShip)
+--some temp tap handlers for aliens - for debugging
+--for k, thisShip in pairs(attackers) do
+--    thisShip.tap = alienFireTheLaser(thisShip)
+--    thisShip:addEventListener('tap', thisShip)
+--end
+
+--Move the aliens across the screen
+local aliensMovementTransitionID = nil
+--Should the move be up or down on the y axis
+local    yUp = false
+local moveRtl = false
+function moveAliens() 
+    print('moveAliens')
+    --how far left and right they can go
+    local maxLeft = 10
+    local maxRight = displayWidth - 10
+    --a single move on the y axis
+    local yMove = 5
+    --a single move on the x axis
+    local xMove = displayWidth / 31
+
+    if (moveRtl == true) then
+        print('Move rtl')
+        if (yUp ==  false) then
+            for i=1, #attackersNames do
+                attackers[attackersNames[i]].x, attackers[attackersNames[i]].y = attackers[attackersNames[i]].x-xMove, attackers[attackersNames[i]].y+yMove 
+                if (attackers[attackersNames[i]].isMaxLeft) then
+                    print(attackers[attackersNames[i]].name..' is max left.')
+                    if (attackers[attackersNames[i]].x - (attackers[attackersNames[i]].width*0.5) - xMove < maxLeft) then
+                        print('Max left reached.')
+                        moveRtl = false
+                    end
+--                    
+--                else 
+--                    print(attackers[attackersNames[i]].name..' is not max left.')
+                end
+            end
+            yUp = true
+        else
+            for i=1, #attackersNames do
+                attackers[attackersNames[i]].x, attackers[attackersNames[i]].y = attackers[attackersNames[i]].x-xMove, attackers[attackersNames[i]].y-yMove
+                if (attackers[attackersNames[i]].isMaxLeft) then
+                    print(attackers[attackersNames[i]].name..' is max left.')
+                    if (attackers[attackersNames[i]].x - (attackers[attackersNames[i]].width*0.5) - xMove < maxLeft) then
+                        print('Max left reached.')
+                        moveRtl = false
+                    end
+--                    
+--                else 
+--                    print(attackers[attackersNames[i]].name..' is not max left.')
+                end
+            end            
+            yUp = false
+        end    
+    else
+        print('Move ltr')
+        if (yUp ==  false) then
+            for i=1, #attackersNames do
+                attackers[attackersNames[i]].x, attackers[attackersNames[i]].y = attackers[attackersNames[i]].x+xMove, attackers[attackersNames[i]].y+yMove 
+                if (attackers[attackersNames[i]].isMaxRight) then
+                    print(attackers[attackersNames[i]].name..' is max right.')
+                    if (attackers[attackersNames[i]].x + (attackers[attackersNames[i]].width*0.5) + xMove > maxRight) then
+                        print('Max right reached.')
+                        moveRtl = true
+                    end
+--                    
+--                else 
+--                    print(attackers[attackersNames[i]].name..' is not max left.')
+                end
+            end
+            yUp = true
+        else
+            for i=1, #attackersNames do
+                attackers[attackersNames[i]].x, attackers[attackersNames[i]].y = attackers[attackersNames[i]].x+xMove, attackers[attackersNames[i]].y-yMove
+                if (attackers[attackersNames[i]].isMaxRight) then
+                    print(attackers[attackersNames[i]].name..' is max right.')
+                    if (attackers[attackersNames[i]].x + (attackers[attackersNames[i]].width*0.5) + xMove > maxRight) then
+                        print('Max right reached.')
+                        
+                        moveRtl = true
+                    end
+--                    
+--                else 
+--                    print(attackers[attackersNames[i]].name..' is not max left.')
+                end
+            end         
+            if (moveRtl) then
+                for i=1, #attackersNames do
+                    attackers[attackersNames[i]].y = attackers[attackersNames[i]].y +20
+                end
+            end
+            yUp = false
+        end   
+    end 
 end
+
+local alienMovementTimerRef = timer.performWithDelay(1000, moveAliens, 30)  
+--alien shots timer
 alienTimerRef = timer.performWithDelay(math.random(0,1.3)* 1000, alienFireTheLaser, -1)  
