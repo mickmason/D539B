@@ -112,6 +112,7 @@ backToHomeButton:toBack()
 function backToHomeButtonTap() 
     --do paging back to landing page
 end
+
 --countdown function
 function timerCount() 
     gameLength = gameLength - 1
@@ -147,55 +148,83 @@ end
 --------------------------------------------------------------------
 ---- -- -- -- --  ** End game UI elements ** -- -- -- -- -- -- -- -- 
 --------------------------------------------------------------------
+
+-----------------------------------
+-- ** JSON data and functions ** --
+-----------------------------------
+function readJsonFile(fileName)
+	local path = system.pathForFile( fileName)
+	local file, errorString = io.open( path, "r" )
+	if not file then
+		return errorstring, 'error'
+	else
+		local json = require 'json'
+		local tab = json.decode(file:read( "*a" ))
+		io.close(file)
+                return tab
+	end
+	file = nil
+end
 -- from JSON --
-local topScores = {
-    {
-        username = {
-            'michael__'
-        },
-        scores = {
-            220, 220, 160, 120, 100
-        },
-        password = 'passw0rd'
-    }
-}
+
+local topScores = nil
 -- ** user top scores ** --
-local scoresData = {
+local gameScoresData = {
     userScores = {
     }
 } 
-for i in ipairs(topScores) do
-    for k,v in pairs(topScores[i]) do
-        if (k == 'scores') then
-            scoresData.userScores = v
+function loadScoresData()
+    if (topScores == nil) then
+        local scores, err = readJsonFile('player_data/player_data.json')
+        if err then
+            print("Error "..scores)
+        else 
+            topScores = scores.topScores
+        end        
+    end
+    for i in ipairs(topScores) do
+        for k,v in pairs(topScores[i]) do
+            if (k == 'username' and v == player.username) then
+                gameScoresData.userScores = topScores[i].scores
+            end
         end
     end
+    for i in ipairs(gameScoresData.userScores) do
+           print(gameScoresData.userScores[i])
+    end    
 end
-for i in ipairs(scoresData.userScores) do
-       print(scoresData.userScores[i])
-end
+
+
 
 function updateScoresData() 
     local highScoreIndex = 0
     local userScore = tonumber(score.text)
         
-        for i in ipairs(scoresData.userScores) do
+        for i in ipairs(gameScoresData.userScores) do
             
-            if (userScore > scoresData.userScores[i] or userScore == scoresData.userScores[i]) then
-                print('User score: '..userScore)
-                print('Scores data i: '..scoresData.userScores[i])
+            if (userScore > gameScoresData.userScores[i] or userScore == gameScoresData.userScores[i]) then
                 highScoreIndex = i
                 break
             end
         end
-        if (highScoreIndex > 1) then 
-            table.insert(scoresData.userScores, highScoreIndex, userScore)
-            table.remove(scoresData.userScores, #scoresData.userScores)
+        if (highScoreIndex >= 1) then 
+            table.insert(gameScoresData.userScores, highScoreIndex, userScore)
+            table.remove(gameScoresData.userScores, #gameScoresData.userScores)
         end
 
-    for i in ipairs(scoresData.userScores) do
-       print(scoresData.userScores[i])
+    for i in ipairs(gameScoresData.userScores) do
+       print(gameScoresData.userScores[i])
     end
+    
+    for i in ipairs(topScores) do
+        for k,v in pairs(topScores[i]) do
+            if (k == 'username' and v == player.username) then
+                topScores[i].scores = gameScoresData.userScores
+            end
+        end
+    end    
+    
+    
 end
 
 -- ** Game start, stop, pause ** --
@@ -260,7 +289,7 @@ local gameShips = {
             image_path = 'player.png',
             bodyType = 'dynamic',
             isSensor = true,
-            ki = 300,
+            ki = 200,
             laserShot = {
                 shape = {0,-85, 5,-23.5, 5,55, -5,55, -5,-23.5 },
                 image_path = 'player_shot.png',
@@ -633,6 +662,7 @@ function moveAliens()
 end
 
 function startGame() 
+    loadScoresData()
     alienMovementTimerRef = timer.performWithDelay(1000, moveAliens, -1)  
     --alien shots timer
     alienShooterTimerRef = timer.performWithDelay(600, alienFireTheLaser, -1) 
