@@ -170,11 +170,15 @@ function readJsonFile(fileName)
 	local file, errorString = io.open( path, "r" )
 	if not file then
 		return errorString
-	else
+        else
 		local json = require 'json'
 		local tab = json.decode(file:read( "*a" ))
+                if tab then
+                    return tab
+                else 
+                    return 'Error getting JSON'
+                end
 		io.close(file)
-                return tab
 	end
 	file = nil
 end
@@ -190,7 +194,7 @@ function loadScoresData()
     if (topScores == nil) then
         local scores, err = readJsonFile('player_data/player_data.json')
         if err then
-            print("Error "..scores)
+            print("Error "..err)
         else 
             topScores = scores.topScores
         end        
@@ -236,8 +240,11 @@ function updateScoresData()
             end
         end
     end    
-    
-    
+    local err = writeJsonFile('player_data/player_data.json')
+    if (err) then
+        print(err)
+    end
+ 
 end
 
 -- ** Game start, stop, pause ** --
