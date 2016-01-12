@@ -152,11 +152,24 @@ end
 -----------------------------------
 -- ** JSON data and functions ** --
 -----------------------------------
+function writeJsonFile(fileName, data)
+    local path = system.pathForFile( fileName)
+    local file, errorString = io.open( path, "w" )
+    if not file then
+		return errorString
+    else
+        local json = require 'json'
+        file:write(json.encode(data))
+        io.close(file)
+    end
+    file = nil
+end
+
 function readJsonFile(fileName)
 	local path = system.pathForFile( fileName)
 	local file, errorString = io.open( path, "r" )
 	if not file then
-		return errorstring, 'error'
+		return errorString
 	else
 		local json = require 'json'
 		local tab = json.decode(file:read( "*a" ))
