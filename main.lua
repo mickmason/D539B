@@ -195,14 +195,12 @@ local gameScoresData = {
 } 
 function loadScoresData()
     if (topScores == nil) then
-        local scores, err = readJsonFile('player_data/player_data.json')
+        local playerData, err = readJsonFile('player_data/player_data.json')
         if err then
-            print("Error "..scores)
-        else 
-            topScores = scores
+            print("Error "..err)
         end        
     end
-    for k, users in pairs(topScores) do
+    for k, users in pairs(playerData) do
         for i in pairs(users) do
             for l, v in pairs(users[i]) do
                 if (l == 'username' and v == player.username) then
@@ -211,6 +209,7 @@ function loadScoresData()
             end
         end
     end    
+    return playerData, gameScoresData
 end
 
 
