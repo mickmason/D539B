@@ -1,15 +1,23 @@
 require "CiderDebugger";
 animations = require("animations")
-local physics = require "physics"
+
+
+-- main.lua --
+-- * Default font * --
+local sysFonts = native.getFontNames()
+local gameBaseFont = 'Courier'
 
 -----------------------------
 -- ** Global properties ** --
 -----------------------------
 -- * physics envirionment * --
+local physics = require "physics"
 physics.start()
 physics.setReportCollisionsInContentCoordinates(true)
 physics.setReportCollisionsInContentCoordinates( true)
 
+
+-- main.lua --
 -- * Display dimensions * --
 local displayWidth = display.contentWidth
 local displayHeight = display.contentHeight
@@ -18,25 +26,21 @@ local displayCenter = {
     x = display.contentWidth * 0.5,
     y = display.contentHeight * 0.5
 }
--- * Default font * --
-local sysFonts = native.getFontNames()
-local gameBaseFont = 'Courier'
 
 -- * Set up page padding * --
 local pagePadding = {
-    top = 30, bottom = 10, left = 15, right = 15
+    top = 20, bottom = 10, left = 15, right = 15
 }
+
+
+
+
 -----------------
 -- ** Pages ** --
 -----------------
--- app group --
- 
--- ** Landing page group ** --
-local landingPageGroup = display.newGroup() 
-landingPageGroup.width = pageWidth --5px padding on either side
-landingPageGroup.height = displayHeight - 30 --30px padding on the top of the game area
-local topScoresGroup = display.newGroup() 
-landingPageGroup:insert(topScoresGroup)
+
+-- landingscene create() --
+
 
 -- ** Game page group ** --
 ---- * dimenstions * -----
@@ -165,7 +169,6 @@ function writeJsonFile(fileName, data)
         io.close(file)
     end
     file = nil
-    print('168: return true')
     return true
 end
 
