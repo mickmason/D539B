@@ -1,13 +1,1 @@
-{"topScores": [
-    {
-        "username": "michael__",
-        "scores": [ 220, 220, 160, 120, 100 ],
-        "password": "passw0rd"
-    },
-    {
-        "username": "other",
-
-        "scores": [ 220, 220, 160, 120, 100 ],
-        "password": "other_passw0rd"
-    }    
-]}
+{"topScores":[{"username":"michael__","scores":[220,220,220,220,220],"password":"passw0rd"},{"username":"other","scores":[220,220,160,120,100],"password":"other_passw0rd"}]}

@@ -1,6 +1,5 @@
 require "CiderDebugger";
 animations = require("animations")
-
 local physics = require "physics"
 
 -----------------------------
@@ -153,16 +152,21 @@ end
 -- ** JSON data and functions ** --
 -----------------------------------
 function writeJsonFile(fileName, data)
+    print('write file')
     local path = system.pathForFile( fileName)
     local file, errorString = io.open( path, "w" )
     if not file then
 		return errorString
     else
+            print('162: Ok to write file')
         local json = require 'json'
-        file:write(json.encode(data))
+        local jsData = json.encode(data)
+        file:write(jsData)
         io.close(file)
     end
     file = nil
+    print('168: return true')
+    return true
 end
 
 function readJsonFile(fileName)
@@ -192,29 +196,26 @@ function loadScoresData()
         if err then
             print("Error "..scores)
         else 
-            topScores = scores.topScores
+            topScores = scores
         end        
     end
-    for i in ipairs(topScores) do
-        for k,v in pairs(topScores[i]) do
-            if (k == 'username' and v == player.username) then
-                gameScoresData.userScores = topScores[i].scores
+    for k, users in pairs(topScores) do
+        for i in pairs(users) do
+            for l, v in pairs(users[i]) do
+                if (l == 'username' and v == player.username) then
+                    gameScoresData.userScores = users[i].scores
+                end
             end
         end
-    end
-    for i in ipairs(gameScoresData.userScores) do
-           print(gameScoresData.userScores[i])
     end    
 end
 
 
 
-function updateScoresData() 
+function updateScoresData()
     local highScoreIndex = 0
     local userScore = tonumber(score.text)
-        
         for i in ipairs(gameScoresData.userScores) do
-            
             if (userScore > gameScoresData.userScores[i] or userScore == gameScoresData.userScores[i]) then
                 highScoreIndex = i
                 break
@@ -226,17 +227,20 @@ function updateScoresData()
         end
 
     for i in ipairs(gameScoresData.userScores) do
-       print(gameScoresData.userScores[i])
+       print('line 231 '..gameScoresData.userScores[i])
     end
     
-    for i in ipairs(topScores) do
-        for k,v in pairs(topScores[i]) do
-            if (k == 'username' and v == player.username) then
-                topScores[i].scores = gameScoresData.userScores
+    for j in ipairs(topScores) do
+        for i in pairs(topScores[j]) do
+            for l, v in pairs(topScores[j]) do
+                print(l)
+                if (l == 'username' and v == player.username) then
+                    topScores[j][i].scores = gameScoresData.userScores
+--                    print('line 240 '..v..topScores[j][i].scores)
+                end
             end
         end
     end    
-    
     
 end
 
@@ -253,12 +257,13 @@ function endGame()
     --alien shots timer
     timer.cancel(alienShooterTimerRef)
     timer.cancel(clockTimerRef)
-    updateScoresData()
     gameOverScore.text = 'Score: '..score.text
     gameOverScore.isVisible = true
     gameOver.isVisible = true
     backToHomeButton.isVisible = true
     backToHomeButtonText.isVisible = true
+    updateScoresData()  
+    writeJsonFile('player_data/player_data.json', topScores)
 end
 
 -----------------------------------------
@@ -675,6 +680,7 @@ function moveAliens()
 end
 
 function startGame() 
+    print('Start game')
     loadScoresData()
     alienMovementTimerRef = timer.performWithDelay(1000, moveAliens, -1)  
     --alien shots timer
