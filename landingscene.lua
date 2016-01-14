@@ -98,7 +98,7 @@ function scene:show(event)
 --        playerData, dataError = loadScoresData()
 
         if (event.params) then
-            print('Event params '..event.params.someKey)
+            print('Event params ')
         end
 
         if (dataError) then

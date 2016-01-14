@@ -1,9 +1,8 @@
 require "CiderDebugger";
-globals = require('globals')
+local globals = require('globals')
 local composer = require('composer')
 
 -- main.lua --
-
 local options = {
     effect = "fade",
     time = 500,

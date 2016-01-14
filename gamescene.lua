@@ -5,6 +5,8 @@
 local globals = require("globals")
 animations = require("animations")
 local composer = require('composer')
+-- * physics envirionment * --
+local physics = require "physics"
 
 -- New scene
 local scene = composer.newScene()
@@ -16,107 +18,60 @@ local displayObjectGroups = {}
 -- Global variables and functions
 local dims = globals.dimensions
 local funcs = globals.functions
-
+local gameFont = globals.fonts.gameBaseFont
 player = {
     username = 'michael__'
 }
 
--- scene:create()
-function scene:create(event)
-    local sceneGroup = self.view
-    local params = event.params
-    
-    local gamePageGroup = display.newGroup()
-    sceneGroup:insert(gamePageGroup)
-    -- max widths and game boundaries --
-    gamePageGroup.width = globals.dimensions.displayWidth - 10 --5px padding on either side
-    gamePageGroup.height = globals.dimensions.displayHeight - 30 --30px padding on the top of the game area
-    gamePageGroup.maxXLeft = globals.dimensions.displayCenter.x - gamePageGroup.width * 0.5 
-    gamePageGroup.maxXRight = globals.dimensions.displayCenter.x + gamePageGroup.width * 0.5 
-    gamePageGroup.maxTop = globals.dimensions.displayCenter.y - gamePageGroup.height * 0.5 
-    gamePageGroup.maxBottom = globals.dimensions.displayCenter.y + gamePageGroup.height * 0.5 
-end
-
------------------------------
--- ** Global properties ** --
------------------------------
--- * physics envirionment * --
-local physics = require "physics"
-physics.start()
-physics.setReportCollisionsInContentCoordinates(true)
-physics.setReportCollisionsInContentCoordinates( true)
-
-
-
--- landingscene create() --
-
-
--- ** Game page group ** --
----- * dimenstions * -----
-
-player = {
-    username = 'michael__'
+local playerData = nil
+-- ** user top scores ** --
+local userScoresData = {
+        userScores = nil
 }
--- * Some timer references for alien behaviours * -- 
-local alienShooterTimerRef = nil
-local alienMovementTimerRef = nil
---------------------------------------------------------------------
--- ** Game UI elements: start button, score, timer, life force ** --
---------------------------------------------------------------------
-local gameUIGroup = display.newGroup()
-gamePageGroup:insert(gameUIGroup)
--- score
-local score = display.newText({parent=gameUIGroup, text='100', font=gameBaseFont, fontSize=22, height=100, align='right', width=(displayWidth*0.5)-20})
-score.anchorX, score.anchorY  = 0,0
-score.x = displayWidth*0.5
-score.y = -25
-score.score = 0
-score.text = score.score
---countdown
-local countdown = display.newText({parent=gameUIGroup, text='01:00', font=gameBaseFont, fontSize=22, height=100, align='left', width=(displayWidth*0.5)})
-countdown.anchorX, countdown.anchorY  = 0,0
-countdown.y = -25
-countdown.x = 20
 
--- Game lasts 1 minute
-local gameLength = 1 * 60
+-- an array of all display object groups - used in scene:destroy() to remove them    
+local displayObjectGroups = {}
+
+--scene-wide variables
+local gamePageGroup = nil
+
+-- ** Game UI elements: start button, score, timer, life force go in here ** --
+local gameUIGroup = nil
+-- Score text
+local score = nil
+--Game timer countdown
+local countdown = nil
 -- Game clock timer ref
 local clockTimerRef = 0
 -- Lifeforce indicator
-local lfIndicator = display.newRect(displayWidth, displayHeight, displayWidth*0.23, 3, 2)
-gameUIGroup:insert(lfIndicator)
-lfIndicator.x = displayWidth-lfIndicator.width - 10 
-lfIndicator.initialWidth = lfIndicator.width
-lfIndicator:setFillColor(0.1,0.8,0.1)
-lfIndicator.anchorX, lfIndicator.anchorY  = 0,0
-local lfIndicatorBG = display.newRect(lfIndicator.x - 1, lfIndicator.y -1, lfIndicator.width+2, lfIndicator.height+2, 2)
-gameUIGroup:insert(lfIndicatorBG)
-lfIndicatorBG.anchorX, lfIndicatorBG.anchorY = 0,0
-lfIndicatorBG:setFillColor(0.3,0.3,0.3)
-lfIndicator:toFront()
-
--- Game over text
-local gameOver = display.newText({parent=gameUIGroup, text='Game over', font=gameBaseFont, fontSize=32, height=100, align='center', width=(displayWidth*0.5)})
-gameOver.isVisible = false
-gameOver.x, gameOver.y = globals.dimensions.displayCenter.x, globals.dimensions.displayCenter.y - globals.dimensions.displayHeight * 0.23
-local gameOverScore = display.newText({parent=gameUIGroup, text='Score', font=gameBaseFont, fontSize=22, height=100, align='center', width=(globals.dimensions.displayWidth*0.5)})
-gameOverScore.isVisible = false
-gameOverScore.x, gameOverScore.y = globals.dimensions.displayCenter.x, gameOver.y + 50
+local lfIndicator = nil
+local lfIndicatorBG = nil
+-- Game over
+local gameOver = nil
+local gameOverScore = nil
 
 --Back to home button
-local backToHomeButton = display.newRect(gameOverScore.x, gameOverScore.y+20, globals.dimensions.displayWidth*0.45, 34, 2)
-gameUIGroup:insert(lfIndicator)
-backToHomeButton:setFillColor(0.3,0.3,0.3)
-backToHomeButton.isVisible = false
-local backToHomeButtonText = display.newText({parent=gameUIGroup, text='Back to home', font=gameBaseFont, fontSize=18, height=backToHomeButton.height, align='center', width=(globals.dimensions.displayWidth*0.5)})
-backToHomeButtonText.x, backToHomeButtonText.y = backToHomeButton.x, backToHomeButton.y+6
-backToHomeButtonText.isVisible = false
-backToHomeButton:toBack()
+local backToHomeButton = nil
+local backToHomeButtonText = nil
 
-function backToHomeButtonTap() 
-    --do paging back to landing page
-end
+-- ** Game display objects, ships, laser shots **--
+local gameShips, gameShipsErr = nil
+--player ship
+local playerShip = nil
+--Alien ships - use this array to track ships
+local attackersNames = nil 
+-- Alien ship display objects
+local attackers = {}
+-- A count of attackers, used to provide a unique index for each ship
+local attackersCount = 0
 
+-- * Some timer references for alien behaviours * -- 
+local alienShooterTimerRef = nil
+local alienMovementTimerRef = nil
+
+--** scene-wide functions **--
+-- Game lasts 1 minute
+local gameLength = 1 * 60 -- this could be set to different values for other rounds
 --countdown function
 function timerCount() 
     gameLength = gameLength - 1
@@ -126,15 +81,16 @@ function timerCount()
 end
 
 function startTimer() 
-    clockTimerRef = timer.performWithDelay(1000, timerCount, gameLength)
+    return timer.performWithDelay(1000, timerCount, gameLength)
 end
-function pauseTimer() 
-    if (clockTimerRef ~= nil) then timer.pause(clockTimerRef) end
+function pauseTimer(timerRef) 
+    if (timerRef ~= nil) then timer.pause(timerRef) end
 end
-function resumeTimer() 
-    if (clockTimerRef ~= nil) then timer.resume(clockTimerRef) end
+function resumeTimer(timerRef) 
+    if (timerRef ~= nil) then timer.resume(timerRef) end
 end
 
+--** Game functions **--
 --function to decrement the life force indicator
 function decrementLfIndicator(decUnit)
     lfIndicator.width = lfIndicator.width - decUnit
@@ -144,118 +100,32 @@ function decrementLfIndicator(decUnit)
         lfIndicator:setFillColor(1, 0, 0)
     end
 end
+
 --increment the score - takes an alien ships and gets its hit score
 function incrementScore(hitShip)
     score.score = score.score + hitShip.killScore
     score.text = score.score
 end
---------------------------------------------------------------------
----- -- -- -- --  ** End game UI elements ** -- -- -- -- -- -- -- -- 
---------------------------------------------------------------------
-
------------------------------------
--- ** JSON data and functions ** --
------------------------------------
-function writeJsonFile(fileName, data)
-    print('write file')
-    local path = system.pathForFile( fileName)
-    local file, errorString = io.open( path, "w" )
-    if not file then
-		return errorString
-    else
-            print('162: Ok to write file')
-        local json = require 'json'
-        local jsData = json.encode(data)
-        file:write(jsData)
-        io.close(file)
-    end
-    file = nil
-    return true
-end
-
-function readJsonFile(fileName)
-	local path = system.pathForFile( fileName)
-	local file, errorString = io.open( path, "r" )
-	if not file then
-		return errorString
-	else
-		local json = require 'json'
-		local tab = json.decode(file:read( "*a" ))
-		io.close(file)
-                return tab
-	end
-	file = nil
-end
--- from JSON --
-
-local topScores = nil
--- ** user top scores ** --
-local gameScoresData = {
-    userScores = {
-    }
-} 
-function loadScoresData()
-    if (topScores == nil) then
-        local playerData, err = readJsonFile('player_data/player_data.json')
-        if err then
-            print("Error "..err)
-        end        
-    end
-    for k, users in pairs(playerData) do
-        for i in pairs(users) do
-            for l, v in pairs(users[i]) do
-                if (l == 'username' and v == player.username) then
-                    gameScoresData.userScores = users[i].scores
-                end
-            end
-        end
-    end    
-    return playerData, gameScoresData
-end
-
-
-
-function updateScoresData()
-    local highScoreIndex = 0
-    local userScore = tonumber(score.text)
-        for i in ipairs(gameScoresData.userScores) do
-            if (userScore > gameScoresData.userScores[i] or userScore == gameScoresData.userScores[i]) then
-                highScoreIndex = i
-                break
-            end
-        end
-        if (highScoreIndex >= 1) then 
-            table.insert(gameScoresData.userScores, highScoreIndex, userScore)
-            table.remove(gameScoresData.userScores, #gameScoresData.userScores)
-        end
-
-    for i in ipairs(gameScoresData.userScores) do
-       print('line 231 '..gameScoresData.userScores[i])
-    end
-    
-    for j in ipairs(topScores) do
-        for i in pairs(topScores[j]) do
-            for l, v in pairs(topScores[j]) do
-                print(l)
-                if (l == 'username' and v == player.username) then
-                    topScores[j][i].scores = gameScoresData.userScores
---                    print('line 240 '..v..topScores[j][i].scores)
-                end
-            end
-        end
-    end    
-    
-end
 
 -- ** Game start, stop, pause ** --
-function pauseGame()
+
+function startGame() 
+    print('Start game')
+    loadScoresData()
+    alienMovementTimerRef = timer.performWithDelay(1000, moveAliens, -1)  
+    --alien shots timer
+    alienShooterTimerRef = timer.performWithDelay(600, alienFireTheLaser, -1) 
+    startTimer()
+end
+
+function pauseGame(timer)
     timer.pause(alienMovementTimerRef)
     --alien shots timer
     timer.pause(alienShooterTimerRef)
 
     pauseTimer()
 end
-function endGame()
+function endGame(timer)
     timer.cancel(alienMovementTimerRef)
     --alien shots timer
     timer.cancel(alienShooterTimerRef)
@@ -265,143 +135,16 @@ function endGame()
     gameOver.isVisible = true
     backToHomeButton.isVisible = true
     backToHomeButtonText.isVisible = true
-    updateScoresData()  
-    writeJsonFile('player_data/player_data.json', topScores)
+    funcs.updateScoresData(userScoresData.userScores, score)  
+    --funcs.writeJsonFile('player_data/player_data.json', topScores)
+end --endGame()
+
+
+--**  Game Event Handler functions ** --
+function backToHomeButtonTap() 
+    --do paging back to landing page
 end
 
------------------------------------------
--- ** Game objects to and from JSON ** --
------------------------------------------
-
-
-local gameShips = {
-    alienShips = {
-            bigShip = {
-                shape = {-3,-24, 3,-24, 24,-1.3, 16.55,3.67, 1.57,24, -1.57,24, -16.55,3.67, -24,-1.3},
-                image_path = 'attacker_1.png',
-                bodyType = 'dynamic',
-                isSensor = true,
-                categoryFilter = {categoryBits=1, maskBits=16},
-                shipMaxHits = 10,
-                killScore = 100,
-                laserPower = 20
-            },
-            smallShip1 = {
-                shape = {2,-14, 5.18,-9.68, 14,-2.63, 9.52,3.27, 7.1,6.15, 0,14, -7.1,6.15, -9.52,3.27, -14,-2.64, -5.18,-9.68 },
-                image_path = 'small_attacker_1.png',
-                bodyType = 'dynamic',
-                isSensor = true,
-                categoryFilter = {categoryBits=2, maskBits=16},
-                shipMaxHits = 5,
-                killScore = 60,
-                laserPower = 10
-            },
-	    alienLaserShot = {
-		shape = {0,-45, 2.50,-23.3, 2.91,0, 2.91,45, -2.91,45, -2.91,0, -2.50,-23.3},
-                image_path = 'alien_shot.png',
-                bodyType = 'dynamic',
-                isSensor = true,
-                categoryFilter = {categoryBits=8, maskBits=4},
-                laserPower = 10
-	    }
-    },
-    playerShip = {
-            shape = {0,-28, 3.69,-19.75, 3.69,-3, 56,56, 0.0,56, -3.69,-3, -3.69,-19.75},
-            image_path = 'player.png',
-            bodyType = 'dynamic',
-            isSensor = true,
-            ki = 200,
-            laserShot = {
-                shape = {0,-85, 5,-23.5, 5,55, -5,55, -5,-23.5 },
-                image_path = 'player_shot.png',
-                isSensor = true,
-                bodyType = 'Dynamic',
-                categoryFilter = {categoryBits=16, maskBits=3}
-            },
-            categoryFilter = {categoryBits=4, maskBits=8}
-    }
-}
-
------------------------------------
--- ** Set up the game objects ** --
-------------------------------------- 
---game group - contains the attacker and player ships
-local gameGroup = display.newGroup();
-gameGroup.width, gameGroup.height = globals.dimensions.displayWidth,globals.dimensions.displayHeight 
-gamePageGroup:insert(gameGroup)
-gameGroup.y = 50
-gameGroup.center = {
-    x = globals.dimensions.displayCenter.x,
-    y = globals.dimensions.displayCenter.y
-}
-
---Add the player
-local playerShip = display.newImage(gameGroup, "assets/"..gameShips.playerShip.image_path)
-playerShip.x = globals.dimensions.displayCenter.x
-playerShip.y = globals.dimensions.displayHeight - playerShip.height - 50
-physics.addBody(playerShip, {shape=gameShips.playerShip.shape, filter =  gameShips.playerShip.categoryFilter})
-playerShip.gravityScale = 0
-playerShip.isSensor = gameShips.playerShip.isSensor
-playerShip.name = "Player ship"
-playerShip.ki = gameShips.playerShip.ki
-playerShip.startKi = playerShip.ki
-
---Alien ships for this round
-local attackersNames = {'bigShip', 'smallShip1', 'smallShip2'}
-local attackers = {}
-local attackersCount = 0
-for k, v in pairs(attackersNames) do
-    if (v=='bigShip') then
-        attackers[v] = display.newImage("assets/"..gameShips.alienShips.bigShip.image_path)
-        attackers[v].y = 0
-        --attackers[v].strokeWidth = 1
-        attackers[v].name = v
-        attackers[v].shipMaxHits = gameShips.alienShips.bigShip.shipMaxHits
-        attackers[v].killScore = gameShips.alienShips.bigShip.killScore
-        attackers[v].laserPower = gameShips.alienShips.bigShip.laserPower        
-        gameGroup:insert(attackers[v])
-        attackers[v].x = gameGroup.center.x
-        physics.addBody(attackers[v], {shape=gameShips.alienShips.bigShip.shape})
-        attackers[v].isSensor = gameShips.alienShips.bigShip.isSensor
-        attackers[v].idx = attackersCount +1 
-    elseif (v=='smallShip1') then
-        attackers[v] = display.newImage("assets/"..gameShips.alienShips.smallShip1.image_path)
-        attackers[v].y = 64
-        attackers[v].name = v
-        attackers[v].shipMaxHits = gameShips.alienShips.smallShip1.shipMaxHits
-        attackers[v].killScore = gameShips.alienShips.smallShip1.killScore
-        attackers[v].laserPower = gameShips.alienShips.smallShip1.laserPower
-        gameGroup:insert(attackers[v])
-        attackers[v].x = globals.dimensions.displayCenter.x - (gameGroup.width * 0.25)
-        physics.addBody(attackers[v], {shape=gameShips.alienShips.smallShip1.shape})
-        attackers[v].isSensor = gameShips.alienShips.smallShip1.isSensor
-        attackers[v].idx = attackersCount +1       
-        attackers[v].isMaxLeft = true
-    elseif (v=='smallShip2') then 
-        attackers[v] = display.newImage("assets/"..gameShips.alienShips.smallShip1.image_path)
-        attackers[v].y = 64
-        attackers[v].name = v
-        attackers[v].shipMaxHits = gameShips.alienShips.smallShip1.shipMaxHits
-        attackers[v].killScore = gameShips.alienShips.smallShip1.killScore
-        attackers[v].laserPower = gameShips.alienShips.smallShip1.laserPower
-        gameGroup:insert(attackers[v])
-        attackers[v].x = globals.dimensions.displayCenter.x + (gameGroup.width * 0.25)
-        physics.addBody(attackers[v], {shape=gameShips.alienShips.smallShip1.shape})
-        attackers[v].isSensor = gameShips.alienShips.smallShip1.isSensor
-        attackers[v].idx = attackersCount +1         
-        attackers[v].isMaxRight = true
-    end
-     
-    attackers[v].hitCount = 0
-    attackers[v].bodyType = 'dynamic'   
-    attackers[v].filter = {categoryBits=2, maskBits=16}
-    attackers[v].gravityScale = 0   
-    attackersCount = attackersCount + 1
-end
-
---------------------------
--- ** Game functions ** --
---------------------------
 --***Player laser shot collision handler **--
 function laserOnCollision(self,event)
     if (event.phase == 'began') then
@@ -464,7 +207,8 @@ function laserOnCollision(self,event)
         transition.cancel(self.transitionId)
         return true
     end
-end
+end -- end laser on collision
+
 -- creates a laser shot. Takes and idx to create a unique name
 function createLaserShot() 
     local playerLaserShot = display.newImage(gameGroup, "assets/"..gameShips.playerShip.laserShot.image_path)
@@ -479,7 +223,7 @@ function createLaserShot()
     playerLaserShot:addEventListener('collision', playerLaserShot)
     return playerLaserShot
 end
---Function which fires the player laser
+--Function which fires the player laser - player ship ontap
 function fireTheLaser()
     if (playerShip) then
         local shot = createLaserShot()
@@ -504,15 +248,15 @@ function fireTheLaser()
     else 
         return false
     end
-
-end
+end -- fireTheLaser()
 
 --Player taps ship
-function playerTapListener(self,event)
+function playerTapHandler(self,event)
         fireTheLaser()
 end
---player touch listener
-function playerTouchListener(self,event) 
+
+--player touch handler
+function playerTouchHandler(self,event) 
     if (event.phase == 'began') then
         return true
     end
@@ -529,15 +273,8 @@ function playerTouchListener(self,event)
         print('The jobs off boys')
         return false
     end
-end
-playerShip.touch = playerTouchListener
-playerShip:addEventListener('touch', playerShip)
-playerShip.tap = playerTapListener
-playerShip:addEventListener('tap', playerShip)
+end--player touch handler
 
---------------------------------
--- ** Alien ship functions ** --
--------------------------------- 
 
 -- Alien laser shot collision handler
 function alienLaserOnCollision(self, event)
@@ -623,11 +360,11 @@ local moveRtl = false
 function moveAliens() 
     --how far left and right they can go
     local maxLeft = 10
-    local maxRight = globals.dimensions.displayWidth - 10
+    local maxRight = dims.displayWidth - 10
     --a single move on the y axis
     local yMove = 5
     --a single move on the x axis
-    local xMove = globals.dimensions.displayWidth / 31
+    local xMove = dims.displayWidth / 31
 
     if (moveRtl == true) then
         if (yUp ==  false) then
@@ -682,13 +419,229 @@ function moveAliens()
     end 
 end
 
-function startGame() 
-    print('Start game')
-    loadScoresData()
-    alienMovementTimerRef = timer.performWithDelay(1000, moveAliens, -1)  
-    --alien shots timer
-    alienShooterTimerRef = timer.performWithDelay(600, alienFireTheLaser, -1) 
-    startTimer()
-end
 
-startGame()
+
+
+
+--** Scene lifecycle functions ** --
+
+-- scene:create()
+function scene:create(event)
+    local sceneGroup = self.view
+    local params = event.params
+    
+    -- ** Create groups ** --
+    -- Group for the whole page
+    gamePageGroup = display.newGroup()
+    sceneGroup:insert(gamePageGroup)
+    -- max widths and game boundaries --
+    gamePageGroup.width = dims.displayWidth - (dims.pagePadding.right * 2) --5px padding on either side
+    gamePageGroup.height = dims.displayHeight 
+    gamePageGroup.maxXLeft = dims.displayCenter.x - gamePageGroup.width * 0.5 
+    gamePageGroup.maxXRight = dims.displayCenter.x + gamePageGroup.width * 0.5 
+    gamePageGroup.maxTop = dims.displayCenter.y - gamePageGroup.height * 0.5 
+    gamePageGroup.maxBottom = dims.displayCenter.y + gamePageGroup.height * 0.5 
+    
+    -- Add it to the groups array
+    table.insert(displayObjectGroups, gamePageGroup)
+    
+    -- For UI elements - score etc
+    gameUIGroup = display.newGroup()
+    gamePageGroup:insert(gameUIGroup)    
+    --UI elements score, game timer, life force indicator, back to landing page button
+    
+    -- score text
+    score = display.newText({parent=gameUIGroup, text='100', font=gameFont, fontSize=22, height=100, align='right', width=(dims.displayWidth*0.5)-20})
+    score.anchorX, score.anchorY  = 0,0
+    score.x = dims.displayWidth*0.5
+    score.y = -25
+    score.score = 0
+    score.text = score.score
+    
+    --countdown 
+    countdown = display.newText({parent=gameUIGroup, text='01:00', font=gameFont, fontSize=22, height=100, align='left', width=(dims.displayWidth*0.5)})
+    countdown.anchorX, countdown.anchorY  = 0,0
+    countdown.y = -25
+    countdown.x = 20
+
+    -- Lifeforce indicator
+    lfIndicator = display.newRect(dims.displayWidth, dims.displayHeight, dims.displayWidth*0.23, 3, 2)
+    gameUIGroup:insert(lfIndicator)
+    lfIndicator.x = dims.displayWidth-lfIndicator.width - 10 
+    lfIndicator.initialWidth = lfIndicator.width
+    lfIndicator:setFillColor(0.1,0.8,0.1)
+    lfIndicator.anchorX, lfIndicator.anchorY  = 0,0
+    lfIndicatorBG = display.newRect(lfIndicator.x - 1, lfIndicator.y -1, lfIndicator.width+2, lfIndicator.height+2, 2)
+    gameUIGroup:insert(lfIndicatorBG)
+    lfIndicatorBG.anchorX, lfIndicatorBG.anchorY = 0,0
+    lfIndicatorBG:setFillColor(0.3,0.3,0.3)
+    lfIndicator:toFront()
+
+    -- Game over text
+    gameOver = display.newText({parent=gameUIGroup, text='Game over', font=gameFont, fontSize=32, height=100, align='center', width=(dims.displayWidth*0.5)})
+    gameOver.isVisible = false
+    gameOver.x, gameOver.y = dims.displayCenter.x, dims.displayCenter.y - dims.displayHeight * 0.23
+    gameOverScore = display.newText({parent=gameUIGroup, text='Score', font=gameFont, fontSize=22, height=100, align='center', width=(dims.displayWidth*0.5)})
+    gameOverScore.isVisible = false
+    gameOverScore.x, gameOverScore.y = dims.displayCenter.x, gameOver.y + 50
+
+    --Back to home button
+    backToHomeButton = display.newRect(gameOverScore.x, gameOverScore.y+20, dims.displayWidth*0.45, 34, 2)
+    gameUIGroup:insert(lfIndicator)
+    backToHomeButton:setFillColor(0.3,0.3,0.3)
+    backToHomeButton.isVisible = false
+    backToHomeButtonText = display.newText({parent=gameUIGroup, text='Back to home', font=gameFont, fontSize=18, height=backToHomeButton.height, align='center', width=(dims.displayWidth*0.5)})
+    backToHomeButtonText.x, backToHomeButtonText.y = backToHomeButton.x, backToHomeButton.y+6
+    backToHomeButtonText.isVisible = false
+    backToHomeButton:toBack()    
+    
+    -- Add it to the groups array
+    table.insert(displayObjectGroups, gameUIGroup)
+    
+    --game group - contains the game objects - ships, laser shots
+    local gameGroup = display.newGroup();
+    gameGroup.width, gameGroup.height = dims.displayWidth,dims.displayHeight 
+    gamePageGroup:insert(gameGroup)
+    gameGroup.y = 50
+    gameGroup.center = {
+        x = dims.displayCenter.x,
+        y = dims.displayCenter.y
+    }
+    
+    -- Add it to the groups array
+    table.insert(displayObjectGroups, gameGroup)
+    
+    --gameShips display obects
+    gameShips, gameShipsErr = readJsonFile('ships_data/game_ships.json')
+    if (gameShips) then
+        attackersNames = {'bigShip', 'smallShip1', 'smallShip2'}       
+        -- get the alien ships, add them to the attackers array
+        for k, v in pairs(attackersNames) do
+            if (v=='bigShip') then
+                attackers[v] = display.newImage("assets/"..gameShips.alienShips.bigShip.image_path)
+                attackers[v].name = v
+                attackers[v].shipMaxHits = gameShips.alienShips.bigShip.shipMaxHits
+                attackers[v].killScore = gameShips.alienShips.bigShip.killScore
+                attackers[v].laserPower = gameShips.alienShips.bigShip.laserPower        
+                gameGroup:insert(attackers[v])
+                attackers[v].idx = attackersCount +1 
+            elseif (v=='smallShip1') then
+                attackers[v] = display.newImage("assets/"..gameShips.alienShips.smallShip1.image_path)
+                attackers[v].name = v
+                attackers[v].shipMaxHits = gameShips.alienShips.smallShip1.shipMaxHits
+                attackers[v].killScore = gameShips.alienShips.smallShip1.killScore
+                attackers[v].laserPower = gameShips.alienShips.smallShip1.laserPower
+                gameGroup:insert(attackers[v])
+                attackers[v].idx = attackersCount +1       
+                attackers[v].isMaxLeft = true
+            elseif (v=='smallShip2') then 
+                attackers[v] = display.newImage("assets/"..gameShips.alienShips.smallShip1.image_path)
+                attackers[v].name = v
+                attackers[v].shipMaxHits = gameShips.alienShips.smallShip1.shipMaxHits
+                attackers[v].killScore = gameShips.alienShips.smallShip1.killScore
+                attackers[v].laserPower = gameShips.alienShips.smallShip1.laserPower
+                gameGroup:insert(attackers[v])
+                attackers[v].idx = attackersCount +1         
+                attackers[v].isMaxRight = true
+            end
+            attackers[v].hitCount = 0
+            attackersCount = attackersCount + 1
+        end-- end foreach alien ship        
+    elseif (gameShipsErr)
+        print(gameShipsErr)
+        return true
+    end -- end if gameShip data
+    
+    --Add the game player ship
+    local playerShip = display.newImage(gameGroup, "assets/"..gameShips.playerShip.image_path)
+    physics.addBody(playerShip, {shape=gameShips.playerShip.shape, filter =  gameShips.playerShip.categoryFilter})
+    playerShip.name = "Player ship"
+    playerShip.ki = gameShips.playerShip.ki
+    playerShip.startKi = playerShip.ki
+    
+    
+end -- scene:create()
+
+function scene:show(event)
+    local sceneGroup = self.view
+    local phase = event.phase
+    if (phase == 'will') then
+        if (gameShips) then
+            -- position alien ships
+            for k, v in pairs(attackersNames) do
+                if (v=='bigShip') then                
+                    attackers[v].y = 0
+                    attackers[v].x = gameGroup.center.x
+                    physics.addBody(attackers[v], {shape=gameShips.alienShips.bigShip.shape})
+                    attackers[v].isSensor = gameShips.alienShips.bigShip.isSensor
+                    attackers[v].idx = attackersCount +1 
+                elseif (v=='smallShip1') then
+                    attackers[v].y = 64
+                    attackers[v].x = gameGroup.center.x - (gameGroup.width * 0.25)
+                    physics.addBody(attackers[v], {shape=gameShips.alienShips.smallShip1.shape})
+                    attackers[v].isSensor = gameShips.alienShips.smallShip1.isSensor
+                elseif (v=='smallShip2') then 
+                    attackers[v].y = 64
+                    attackers[v].x = gameGroup.center.x + (gameGroup.width * 0.25)
+                    physics.addBody(attackers[v], {shape=gameShips.alienShips.smallShip1.shape})
+                    attackers[v].isSensor = gameShips.alienShips.smallShip1.isSensor
+                end
+                attackers[v].bodyType = 'dynamic'   
+                attackers[v].filter = {categoryBits=2, maskBits=16}
+                attackers[v].gravityScale = 0   
+            end -- end foreach alien ship
+            
+            --playership positions
+            playerShip.x = dims.displayCenter.x
+            playerShip.y = dims.displayHeight - playerShip.height - 50
+            playerShip.name = "Player ship"
+            playerShip.ki = gameShips.playerShip.ki
+            playerShip.startKi = playerShip.ki            
+            
+        elseif (err) then
+            print(err)
+        end-- end if gameShips data
+        --end show 'will'' phase
+    elseif (phase == 'did') then
+        -- kickoff physics
+        -- * physics envirionment * --
+        physics.start()
+        physics.setReportCollisionsInContentCoordinates(true)
+        physics.setReportCollisionsInContentCoordinates( true)   
+        if (gameShips) then
+            -- add physics for alien ships
+            for k, v in pairs(attackersNames) do
+                if (v=='bigShip') then                
+                    physics.addBody(attackers[v], {shape=gameShips.alienShips.bigShip.shape})
+                    attackers[v].isSensor = gameShips.alienShips.bigShip.isSensor
+                elseif (v=='smallShip1') then
+                    physics.addBody(attackers[v], {shape=gameShips.alienShips.smallShip1.shape})
+                    attackers[v].isSensor = gameShips.alienShips.smallShip1.isSensor
+                elseif (v=='smallShip2') then 
+                    physics.addBody(attackers[v], {shape=gameShips.alienShips.smallShip1.shape})
+                    attackers[v].isSensor = gameShips.alienShips.smallShip1.isSensor
+                end
+                attackers[v].bodyType = 'dynamic'   
+                attackers[v].filter = {categoryBits=2, maskBits=16}
+                attackers[v].gravityScale = 0   
+            end -- foreach alien ships
+            --player ship physics
+            physics.addBody(playerShip, {shape=gameShips.playerShip.shape, filter =  gameShips.playerShip.categoryFilter})
+            playerShip.gravityScale = 0
+            playerShip.isSensor = gameShips.playerShip.isSensor            
+            
+            -- playerShip events
+            playerShip.touch = playerTouchHandler
+            playerShip:addEventListener('touch', playerShip)
+            playerShip.tap = playerTapHandler
+            playerShip:addEventListener('tap', playerShip)            
+        elseif (err) then
+            print(err)
+        end-- end if gameShips data        
+    end -- end show() did phase
+end -- scene:show()
+
+
+
+
+

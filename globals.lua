@@ -7,7 +7,7 @@ local globals = {
             local path = system.pathForFile( fileName)
             local file, errorString = io.open( path, "r" )
             if not file then
-                    return errorString
+                    return nil, errorString
             else
                     local json = require 'json'
                     local jsonTable = json.decode(file:read( "*a" ))
