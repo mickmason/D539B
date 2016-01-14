@@ -118,14 +118,14 @@ function startGame()
     startTimer()
 end
 
-function pauseGame(timer)
+function pauseGame()
     timer.pause(alienMovementTimerRef)
     --alien shots timer
     timer.pause(alienShooterTimerRef)
 
     pauseTimer()
 end
-function endGame(timer)
+function endGame()
     timer.cancel(alienMovementTimerRef)
     --alien shots timer
     timer.cancel(alienShooterTimerRef)
@@ -150,6 +150,7 @@ function laserOnCollision(self,event)
     if (event.phase == 'began') then
         print('Laser collision began with '..event.other.name)
         print('Self x,y '..self.x..','..self.y)
+        transition.cancel(self.transitionId)                
         local alienShip = event.other
         alienShip.hitCount = alienShip.hitCount + 1
         local expl = nil
@@ -199,7 +200,7 @@ function laserOnCollision(self,event)
             expl.isVisible = true
             expl:play()
         end 
-        transition.cancel(self.transitionId)        
+
         display.remove(self)
         return true
     elseif (event.phase == 'ended') then
