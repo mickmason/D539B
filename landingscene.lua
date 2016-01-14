@@ -28,8 +28,12 @@ local userScoresData = {
 local dataError
 
 -- Will be display objects 
-local scoresText = {}
 
+local playBttn = {}
+local topScoresBg = {}
+local scoresText = {}
+local playBttnText = {}
+local topScoresErrorTxt = {}
 -- scene:create()
 function scene:create(event)
     -- ** Landing page group ** --
@@ -53,9 +57,9 @@ function scene:create(event)
     
     table.insert(displayObjectGroups, topScoresGroup)    
     
-    local topScoresBg = display.newRect(dims.displayCenter.x, 0, dims.displayWidth*0.4, 0)
-    topScoresBg.y = dims.displayCenter.y - topScoresBg.height*0.5 + dims.pagePadding.top
-    topScoresBg:setFillColor(0.3, 0.3, 0.3)
+    topScoresBg = display.newRect(dims.displayCenter.x, 0, dims.displayWidth*0.62, 0)
+    topScoresBg.y = dims.displayHeight * 0.25 - topScoresBg.height*0.5 --+ dims.pagePadding.top
+    topScoresBg:setFillColor(0.15, 0.15, 0.15)
     
     --Play button group
     local playBttnGroup = display.newGroup()
@@ -63,7 +67,7 @@ function scene:create(event)
     
     table.insert(displayObjectGroups, landingPageGroup)    
     
-    local playBttn = display.newRect(dims.displayCenter.x, 0, topScoresBg.width, 35)
+    playBttn = display.newRect(dims.displayCenter.x, 0, topScoresBg.width, 35)
     playBttn:setFillColor(0.3, 0.3, 0.3)
     playBttnGroup:insert(playBttn)
     
@@ -74,14 +78,14 @@ function scene:create(event)
     playerData, dataError = funcs.readJsonFile('player_data/player_data.json')
     if (dataError) then
             print(dataError)
-            topScoresTxt = display.newText({parent=topScoresGroup, text='Sorry there was an error'..err, font=globals.fonts.gameBaseFont, fontSize=22, align='left', width=topScoresBg.width, height=200})
-            topScoresBg.height = topScoresTxt.height +20
+            topScoresErrorTxt = display.newText({parent=topScoresGroup, text='Sorry there was an error...'..err, font=globals.fonts.gameBaseFont, fontSize=22, align='left', width=topScoresBg.width, height=200})
+            topScoresBg.height = topScoresErrorTxt.height +20
     else 
         userScoresData =  funcs.loadScoresData(playerData, player.username)
 
         for i in ipairs(userScoresData) do
-            scoresText[i] = display.newText({parent=topScoresGroup, text=player.username..'\t'..userScoresData[i], font=globals.fonts.gameBaseFont, fontSize=16, align='left', width=topScoresBg.width, height=20})
-            topScoresBg.height = topScoresBg.height + scoresText[i].height
+            scoresText[i] = display.newText({parent=topScoresGroup, text=player.username..' '..userScoresData[i], font=globals.fonts.gameBaseFont, fontSize=20, align='left', width=topScoresBg.width, height=30})
+            topScoresBg.height = topScoresBg.height + scoresText[i].height +5 
         end
     end      
 end
@@ -94,17 +98,21 @@ function scene:show(event)
 --        playerData, dataError = loadScoresData()
 
         if (event.params) then
-            --print('Event params '..event.params.someKey)
+            print('Event params '..event.params.someKey)
         end
 
         if (dataError) then
-            topScoresTxt.y = topScoresBg.y
+            topScoresErrorTxt.y = topScoresBg.y
             playBttn.isVisible, playBttnText.isVisible = false, false
         else 
+            --position scores texts
             for i in ipairs(scoresText) do
-                scoresText[i].x,scoresText[i].y = topScoresBg.x, topScoresBg.y + (topScoresBg.height * 0.5)+ (scoresText.height * #scoresText)
+                scoresText[i].x,scoresText[i].y = topScoresBg.x+5, topScoresBg.y - (topScoresBg.height * 0.5)+ ((scoresText[i].height)*i)
+                scoresText[i]:toFront()
             end
-            playBttn.x, playBttn.y = dims.displayCenter.x, topScoresBg.y + topScoresBg*0.5 + 20
+            topScoresBg:toBack()
+            --position play buttons
+            playBttn.x, playBttn.y = dims.displayCenter.x, topScoresBg.y + topScoresBg.height*0.5 + 20
             playBttnText.x, playBttnText.y = playBttn.x, playBttn.y
         end   
     elseif (phase == 'did') then
