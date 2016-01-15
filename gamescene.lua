@@ -548,7 +548,7 @@ function scene:create(event)
             attackers[v].hitCount = 0
             attackersCount = attackersCount + 1
         end-- end foreach alien ship        
-    elseif (gameShipsErr)
+    elseif (gameShipsErr) then
         print(gameShipsErr)
         return true
     end -- end if gameShip data
