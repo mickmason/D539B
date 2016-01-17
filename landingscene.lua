@@ -72,23 +72,8 @@ function scene:create(event)
     playBttnGroup:insert(playBttn)
     
     playBttnText = display.newText({parent=playBttnGroup, text='Play!', font=globals.fonts.gameBaseFont, fontSize=22, height=35, align='center', width=playBttn.width})
-    
 
-    -- Data and objects to show it --
-    playerData, dataError = funcs.readJsonFile('player_data/player_data.json')
-    if (dataError) then
-            print(dataError)
-            topScoresErrorTxt = display.newText({parent=topScoresGroup, text='Sorry there was an error...'..err, font=globals.fonts.gameBaseFont, fontSize=22, align='left', width=topScoresBg.width, height=200})
-            topScoresBg.height = topScoresErrorTxt.height +20
-    else 
-        userScoresData =  funcs.loadScoresData(playerData, player.username)
-
-        for i in ipairs(userScoresData) do
-            scoresText[i] = display.newText({parent=topScoresGroup, text=player.username..' '..userScoresData[i], font=globals.fonts.gameBaseFont, fontSize=20, align='left', width=topScoresBg.width, height=30})
-            topScoresBg.height = topScoresBg.height + scoresText[i].height +5 
-        end
-    end      
-end
+end -- scene:create()
 
 --scene:show()
 function scene:show(event)
@@ -97,24 +82,51 @@ function scene:show(event)
     if (phase == 'will') then
 --        playerData, dataError = loadScoresData()
 
-        if (event.params) then
-            print('Event params ')
-        end
+        if (event.params.scoresData) then
+            print("Event params")
+            userScoresData = event.params.scoresData
+                            print(topScoresBg.height)
+            for i in ipairs(userScoresData) do
+                scoresText[i] = display.newText({parent=topScoresGroup, text=player.username..' '..userScoresData[i], font=globals.fonts.gameBaseFont, fontSize=20, align='center', width=topScoresBg.width, height=25})
 
-        if (dataError) then
-            topScoresErrorTxt.y = topScoresBg.y
-            playBttn.isVisible, playBttnText.isVisible = false, false
-        else 
-            --position scores texts
-            for i in ipairs(scoresText) do
-                scoresText[i].x,scoresText[i].y = topScoresBg.x+5, topScoresBg.y - (topScoresBg.height * 0.5)+ ((scoresText[i].height)*i)
-                scoresText[i]:toFront()
             end
-            topScoresBg:toBack()
-            --position play buttons
-            playBttn.x, playBttn.y = dims.displayCenter.x, topScoresBg.y + topScoresBg.height*0.5 + 20
-            playBttnText.x, playBttnText.y = playBttn.x, playBttn.y
-        end   
+        else 
+            print("No Event params")
+            playerData, dataError = funcs.readJsonFile('player_data/player_data.json')
+            if (dataError) then
+                    print(dataError)
+                    topScoresErrorTxt = display.newText({parent=topScoresGroup, text='Sorry there was an error...'..err, font=globals.fonts.gameBaseFont, fontSize=22, align='center', width=topScoresBg.width, height=200})
+                    topScoresBg.height = topScoresErrorTxt.height +20
+            else 
+                userScoresData =  funcs.loadScoresData(playerData, player.username)
+
+                for i in ipairs(userScoresData) do
+                    scoresText[i] = display.newText({parent=topScoresGroup, text=player.username..' '..userScoresData[i], font=globals.fonts.gameBaseFont, fontSize=20, align='center', width=topScoresBg.width, height=25})
+                    topScoresBg.height = topScoresBg.height + scoresText[i].height +5 
+                end
+            end      
+        end
+        for i in ipairs(userScoresData) do        
+                    scoresText[i].x=topScoresBg.x                      
+                    if (i == 1) then
+                        scoresText[i].y=topScoresBg.y - topScoresBg.y*0.5
+                    else 
+                        scoresText[i].y= scoresText[i-1].y + scoresText[i].height + 2.5
+                    end
+        end
+                topScoresBg:toBack()
+                if (not topScoresBg.isVisible) then
+                    topScoresBg.isVisible = true
+                end
+                
+                if (not playBttn.isVisible) then
+                    playBttn.isVisible = true
+                end
+                --position play buttons
+                playBttn.x, playBttn.y = dims.displayCenter.x, topScoresBg.y + topScoresBg.height*0.5 + 20
+                playBttnText.x, playBttnText.y = playBttn.x, playBttn.y        
+
+
     elseif (phase == 'did') then
         if (not dataError) then
             function playBttnTapListener(e) 
@@ -139,6 +151,11 @@ function scene:hide(event)
         local phase = event.phase
         if (phase == 'will') then
             playBttn:removeEventListener('tap', playBttnTapListener)
+            playBttn.isVisible = false
+            topScoresBg.isVisible = false
+            for i in ipairs(scoresText) do
+                scoresText[i].isVisible = false
+            end
         end
 end--end scene:hide()
 

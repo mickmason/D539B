@@ -7,7 +7,9 @@ animations = require("animations")
 local composer = require('composer')
 -- * physics envirionment * --
 local physics = require "physics"
-
+        physics.start()
+        physics.setReportCollisionsInContentCoordinates(true)
+        physics.setReportCollisionsInContentCoordinates( true)  
 -- New scene
 local scene = composer.newScene()
 
@@ -34,7 +36,7 @@ local displayObjectGroups = {}
 
 --scene-wide variables
 local gamePageGroup = nil
-
+local gamePageGroup = nil
 -- ** Game UI elements: start button, score, timer, life force go in here ** --
 local gameUIGroup = nil
 -- Score text
@@ -42,7 +44,7 @@ local score = nil
 --Game timer countdown
 local countdown = nil
 -- Game clock timer ref
-local clockTimerRef = 0
+local clockTimerRef = nil
 -- Lifeforce indicator
 local lfIndicator = nil
 local lfIndicatorBG = nil
@@ -80,8 +82,20 @@ function timerCount()
     countdown.text = string.format( "%02d:%02d", mins, secs )    
 end
 
-function startTimer() 
-    return timer.performWithDelay(1000, timerCount, gameLength)
+--Function which counts the game in 
+local countInSeconds = 3
+local countInText = nil
+local startText = nil
+function countIn()
+    countInText.text = string.format( "%02d:%02d", countInSeconds)
+    countInSeconds = countInSeconds -1
+    if (countInSeconds == 0) then
+        return true
+    end
+end
+
+function startTimer(timerFunction, duration) 
+    return timer.performWithDelay(1000, timerFunction, duration)
 end
 function pauseTimer(timerRef) 
     if (timerRef ~= nil) then timer.pause(timerRef) end
@@ -111,11 +125,10 @@ end
 
 function startGame() 
     print('Start game')
-    loadScoresData()
     alienMovementTimerRef = timer.performWithDelay(1000, moveAliens, -1)  
     --alien shots timer
     alienShooterTimerRef = timer.performWithDelay(600, alienFireTheLaser, -1) 
-    startTimer()
+    clockTimerRef  = startTimer(timerCount, gameLength)
 end
 
 function pauseGame()
@@ -133,9 +146,22 @@ function endGame()
     gameOverScore.text = 'Score: '..score.text
     gameOverScore.isVisible = true
     gameOver.isVisible = true
+    userScoresData = funcs.updateScoresData(userScoresData, score.text)      
     backToHomeButton.isVisible = true
     backToHomeButtonText.isVisible = true
-    funcs.updateScoresData(userScoresData.userScores, score)  
+    backToHomeButtonText:addEventListener('tap', function() 
+        --print(userScoresData[1])
+        local options = {
+                    effect = 'fade',
+                    time = 500,
+                    params = {
+                        scoresData = userScoresData
+                    }
+        }
+        
+        composer.gotoScene('landingscene', options)
+    end)    
+
     --funcs.writeJsonFile('player_data/player_data.json', topScores)
 end --endGame()
 
@@ -317,6 +343,7 @@ function alienFireTheLaser()
             while (ship == nil) do
                 ship = attackers[attackersNames[math.random(1,#attackersNames)]]
             end             
+            print(ship.name)
             local alienShot = display.newImage(gameGroup, "assets/"..gameShips.alienShips.alienLaserShot.image_path)
             ship:toFront()
             alienShot.x,alienShot.y = ship.x, ship.y+ship.height
@@ -420,17 +447,13 @@ function moveAliens()
     end 
 end
 
-
-
-
-
 --** Scene lifecycle functions ** --
 
 -- scene:create()
 function scene:create(event)
     local sceneGroup = self.view
     local params = event.params
-    
+  
     -- ** Create groups ** --
     -- Group for the whole page
     gamePageGroup = display.newGroup()
@@ -459,7 +482,14 @@ function scene:create(event)
     score.score = 0
     score.text = score.score
     
-    --countdown 
+    -- game countin
+    countInText = display.newText({parent=gameUIGroup, text='01:00', font=gameFont, fontSize=8, height=100, width=(dims.displayWidth*0.5), x=dims.displayCenter.x, y=dims.displayCenter.y})
+    countInText.isVisible = false
+    startText = display.newText({parent=gameUIGroup, text='01:00', font=gameFont, fontSize=8, height=100, width=(dims.displayWidth*0.5), x=dims.displayCenter.x, y=dims.displayCenter.y})
+    startText:setFillColor(0.9,0.2,0.2)
+    startText.isVisible = false
+
+    --game countdown 
     countdown = display.newText({parent=gameUIGroup, text='01:00', font=gameFont, fontSize=22, height=100, align='left', width=(dims.displayWidth*0.5)})
     countdown.anchorX, countdown.anchorY  = 0,0
     countdown.y = -25
@@ -500,7 +530,7 @@ function scene:create(event)
     table.insert(displayObjectGroups, gameUIGroup)
     
     --game group - contains the game objects - ships, laser shots
-    local gameGroup = display.newGroup();
+    gameGroup = display.newGroup();
     gameGroup.width, gameGroup.height = dims.displayWidth,dims.displayHeight 
     gamePageGroup:insert(gameGroup)
     gameGroup.y = 50
@@ -513,8 +543,10 @@ function scene:create(event)
     table.insert(displayObjectGroups, gameGroup)
     
     --gameShips display obects
-    gameShips, gameShipsErr = readJsonFile('ships_data/game_ships.json')
+    gameShips, gameShipsErr = funcs.readJsonFile('ships_data/game_ships.json')
     if (gameShips) then
+        
+        -- Add the attackers
         attackersNames = {'bigShip', 'smallShip1', 'smallShip2'}       
         -- get the alien ships, add them to the attackers array
         for k, v in pairs(attackersNames) do
@@ -526,6 +558,8 @@ function scene:create(event)
                 attackers[v].laserPower = gameShips.alienShips.bigShip.laserPower        
                 gameGroup:insert(attackers[v])
                 attackers[v].idx = attackersCount +1 
+                physics.addBody(attackers[v], {shape=gameShips.alienShips.bigShip.shape})
+                attackers[v].isSensor = gameShips.alienShips.bigShip.isSensor                
             elseif (v=='smallShip1') then
                 attackers[v] = display.newImage("assets/"..gameShips.alienShips.smallShip1.image_path)
                 attackers[v].name = v
@@ -535,6 +569,9 @@ function scene:create(event)
                 gameGroup:insert(attackers[v])
                 attackers[v].idx = attackersCount +1       
                 attackers[v].isMaxLeft = true
+                physics.addBody(attackers[v], {shape=gameShips.alienShips.smallShip1.shape})
+                attackers[v].isSensor = gameShips.alienShips.smallShip1.isSensor                
+                
             elseif (v=='smallShip2') then 
                 attackers[v] = display.newImage("assets/"..gameShips.alienShips.smallShip1.image_path)
                 attackers[v].name = v
@@ -544,7 +581,10 @@ function scene:create(event)
                 gameGroup:insert(attackers[v])
                 attackers[v].idx = attackersCount +1         
                 attackers[v].isMaxRight = true
+                physics.addBody(attackers[v], {shape=gameShips.alienShips.smallShip1.shape})
+                attackers[v].isSensor = gameShips.alienShips.smallShip1.isSensor                
             end
+            attackers[v].gravityScale = 0
             attackers[v].hitCount = 0
             attackersCount = attackersCount + 1
         end-- end foreach alien ship        
@@ -554,42 +594,56 @@ function scene:create(event)
     end -- end if gameShip data
     
     --Add the game player ship
-    local playerShip = display.newImage(gameGroup, "assets/"..gameShips.playerShip.image_path)
+    playerShip = display.newImage(gameGroup, "assets/"..gameShips.playerShip.image_path)
     physics.addBody(playerShip, {shape=gameShips.playerShip.shape, filter =  gameShips.playerShip.categoryFilter})
     playerShip.name = "Player ship"
     playerShip.ki = gameShips.playerShip.ki
     playerShip.startKi = playerShip.ki
-    
-    
+--player ship physics
+            physics.addBody(playerShip, {shape=gameShips.playerShip.shape, filter =  gameShips.playerShip.categoryFilter})
+            playerShip.gravityScale = 0
+            playerShip.isSensor = gameShips.playerShip.isSensor        
+
 end -- scene:create()
 
 function scene:show(event)
     local sceneGroup = self.view
     local phase = event.phase
+    
     if (phase == 'will') then
+        attackersNames = {'bigShip', 'smallShip1', 'smallShip2'} 
+        -- get scores data for the user
+        if (event.params.scoresData) then
+            userScoresData = event.params.scoresData
+            
+        else     
+            playerData, dataError = funcs.readJsonFile('player_data/player_data.json')
+            if (dataError) then
+                print(dataError)
+            else 
+                userScoresData = funcs.loadScoresData(playerData, player.username)
+            end            
+        end
+        
+--        if (#attackers < 3) then
+--            attackersNames = {}
+--            attackersNames = {'bigShip', 'smallShip1', 'smallShip2'}  
+--        end
+        attackersNames = {'bigShip', 'smallShip1', 'smallShip2'}  
         if (gameShips) then
             -- position alien ships
             for k, v in pairs(attackersNames) do
                 if (v=='bigShip') then                
                     attackers[v].y = 0
                     attackers[v].x = gameGroup.center.x
-                    physics.addBody(attackers[v], {shape=gameShips.alienShips.bigShip.shape})
-                    attackers[v].isSensor = gameShips.alienShips.bigShip.isSensor
                     attackers[v].idx = attackersCount +1 
                 elseif (v=='smallShip1') then
                     attackers[v].y = 64
                     attackers[v].x = gameGroup.center.x - (gameGroup.width * 0.25)
-                    physics.addBody(attackers[v], {shape=gameShips.alienShips.smallShip1.shape})
-                    attackers[v].isSensor = gameShips.alienShips.smallShip1.isSensor
                 elseif (v=='smallShip2') then 
                     attackers[v].y = 64
                     attackers[v].x = gameGroup.center.x + (gameGroup.width * 0.25)
-                    physics.addBody(attackers[v], {shape=gameShips.alienShips.smallShip1.shape})
-                    attackers[v].isSensor = gameShips.alienShips.smallShip1.isSensor
                 end
-                attackers[v].bodyType = 'dynamic'   
-                attackers[v].filter = {categoryBits=2, maskBits=16}
-                attackers[v].gravityScale = 0   
             end -- end foreach alien ship
             
             --playership positions
@@ -606,31 +660,27 @@ function scene:show(event)
     elseif (phase == 'did') then
         -- kickoff physics
         -- * physics envirionment * --
-        physics.start()
-        physics.setReportCollisionsInContentCoordinates(true)
-        physics.setReportCollisionsInContentCoordinates( true)   
+ 
         if (gameShips) then
-            -- add physics for alien ships
-            for k, v in pairs(attackersNames) do
-                if (v=='bigShip') then                
-                    physics.addBody(attackers[v], {shape=gameShips.alienShips.bigShip.shape})
-                    attackers[v].isSensor = gameShips.alienShips.bigShip.isSensor
-                elseif (v=='smallShip1') then
-                    physics.addBody(attackers[v], {shape=gameShips.alienShips.smallShip1.shape})
-                    attackers[v].isSensor = gameShips.alienShips.smallShip1.isSensor
-                elseif (v=='smallShip2') then 
-                    physics.addBody(attackers[v], {shape=gameShips.alienShips.smallShip1.shape})
-                    attackers[v].isSensor = gameShips.alienShips.smallShip1.isSensor
-                end
-                attackers[v].bodyType = 'dynamic'   
-                attackers[v].filter = {categoryBits=2, maskBits=16}
-                attackers[v].gravityScale = 0   
-            end -- foreach alien ships
-            --player ship physics
-            physics.addBody(playerShip, {shape=gameShips.playerShip.shape, filter =  gameShips.playerShip.categoryFilter})
-            playerShip.gravityScale = 0
-            playerShip.isSensor = gameShips.playerShip.isSensor            
-            
+--            -- add physics for alien ships
+--            for k, v in pairs(attackersNames) do
+--                print(k, v)
+--                if (v=='bigShip') then                
+--                    physics.addBody(attackers[v], {shape=gameShips.alienShips.bigShip.shape})
+--                    attackers[v].isSensor = gameShips.alienShips.bigShip.isSensor
+--                elseif (v=='smallShip1') then
+--                    physics.addBody(attackers[v], {shape=gameShips.alienShips.smallShip1.shape})
+--                    attackers[v].isSensor = gameShips.alienShips.smallShip1.isSensor
+--                elseif (v=='smallShip2') then 
+--                    physics.addBody(attackers[v], {shape=gameShips.alienShips.smallShip1.shape})
+--                    attackers[v].isSensor = gameShips.alienShips.smallShip1.isSensor
+--                end
+--                attackers[v].bodyType = 'dynamic'   
+--                attackers[v].filter = {categoryBits=2, maskBits=16}
+--                attackers[v].gravityScale = 0   
+--            end -- foreach alien ships
+--                    
+--            
             -- playerShip events
             playerShip.touch = playerTouchHandler
             playerShip:addEventListener('touch', playerShip)
@@ -638,11 +688,31 @@ function scene:show(event)
             playerShip:addEventListener('tap', playerShip)            
         elseif (err) then
             print(err)
-        end-- end if gameShips data        
+        end-- end if gameShips data   
+        
+        startGame()
+        
     end -- end show() did phase
 end -- scene:show()
 
+function scene:hide(event)     
+    local sceneGroup = self.view
+    local phase = event.phase
+    backToHomeButton.isVisible = false
+end
 
+-- scene:destroy
+function scene:destroy()
+    local sceneGroup = self.view
+    for i, group in ipairs(displayObjectGroups) do
+        display.remove(group)
+    end
+end
 
+scene:addEventListener( "create", scene )
+scene:addEventListener( "show", scene )
+scene:addEventListener( "hide", scene )
+scene:addEventListener( "destroy", scene )
 
+return scene
 

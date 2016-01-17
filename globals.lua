@@ -61,7 +61,7 @@ local globals = {
             end
             if (highScoreIndex >= 1) then 
                 table.insert(userScores, highScoreIndex, userScore)
-                table.remove(userScores, #gameScoresData.userScores)
+                table.remove(userScores, #userScores)
             end
             for i in ipairs(userScores) do
                print('line 231 '..userScores[i])
