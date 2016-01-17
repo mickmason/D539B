@@ -63,16 +63,12 @@ local globals = {
                 table.insert(userScores, highScoreIndex, userScore)
                 table.remove(userScores, #userScores)
             end
-            for i in ipairs(userScores) do
-               print('line 231 '..userScores[i])
-            end
             return userScores
         end, 
         updatePlayerData = function(playerData, userScores, username)
             for j in ipairs(playerData) do
                 for i in pairs(playerData[j]) do
                     for l, v in pairs(playerData[j]) do
-                        print(l)
                         if (l == 'username' and v == username) then
                             playerData[j][i].scores = userScores
                         end

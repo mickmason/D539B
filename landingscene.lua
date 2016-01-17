@@ -83,15 +83,14 @@ function scene:show(event)
 --        playerData, dataError = loadScoresData()
 
         if (event.params.scoresData) then
-            print("Event params")
+
             userScoresData = event.params.scoresData
-                            print(topScoresBg.height)
+
             for i in ipairs(userScoresData) do
                 scoresText[i] = display.newText({parent=topScoresGroup, text=player.username..' '..userScoresData[i], font=globals.fonts.gameBaseFont, fontSize=20, align='center', width=topScoresBg.width, height=25})
 
             end
         else 
-            print("No Event params")
             playerData, dataError = funcs.readJsonFile('player_data/player_data.json')
             if (dataError) then
                     print(dataError)
