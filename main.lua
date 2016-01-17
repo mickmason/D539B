@@ -12,6 +12,13 @@ local options = {
     }
 }
 
+
+local function onSystemEvent( event )
+    print( "System event name and type: " .. event.name, event.type )
+end
+
+Runtime:addEventListener( "system", onSystemEvent )
+
 composer.gotoScene('landingscene', options)
 
 

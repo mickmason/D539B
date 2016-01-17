@@ -29,11 +29,23 @@ local dataError
 
 -- Will be display objects 
 
-local playBttn = {}
-local topScoresBg = {}
-local scoresText = {}
-local playBttnText = {}
-local topScoresErrorTxt = {}
+local playBttn = nil
+local topScoresBg = nil
+local scoresText = nil
+local playBttnText = nil
+local topScoresErrorTxt = nil
+
+function playBttnTapListener(e) 
+        local options = {
+            effect = 'fade',
+            time = 500,
+            params = {
+                scoresData = userScoresData
+            }
+        }
+    composer.gotoScene('gamescene', options)
+end
+
 -- scene:create()
 function scene:create(event)
     -- ** Landing page group ** --
@@ -72,7 +84,8 @@ function scene:create(event)
     playBttnGroup:insert(playBttn)
     
     playBttnText = display.newText({parent=playBttnGroup, text='Play!', font=globals.fonts.gameBaseFont, fontSize=22, height=35, align='center', width=playBttn.width})
-
+            playBttn.tap = playBttnTapListener
+            playBttn:addEventListener('tap', playBttn)
 end -- scene:create()
 
 --scene:show()
@@ -81,7 +94,10 @@ function scene:show(event)
     local phase = event.phase
     if (phase == 'will') then
 --        playerData, dataError = loadScoresData()
-
+        if (not scoresText) then
+            scoresText = {}
+        end
+        
         if (event.params.scoresData) then
 
             userScoresData = event.params.scoresData
@@ -128,18 +144,7 @@ function scene:show(event)
 
     elseif (phase == 'did') then
         if (not dataError) then
-            function playBttnTapListener(e) 
-                local options = {
-                    effect = 'fade',
-                    time = 500,
-                    params = {
-                        scoresData = userScoresData
-                    }
-                }
-                composer.gotoScene('gamescene', options)
-            end
-            playBttn.tap = playBttnTapListener
-            playBttn:addEventListener('tap', playBttn)
+
         end
     end
 end --end scene:show()
@@ -149,7 +154,7 @@ function scene:hide(event)
         local sceneGroup = self.view
         local phase = event.phase
         if (phase == 'will') then
-            playBttn:removeEventListener('tap', playBttnTapListener)
+--            playBttn:removeEventListener('tap', playBttnTapListener)
             playBttn.isVisible = false
             topScoresBg.isVisible = false
             for i in ipairs(scoresText) do

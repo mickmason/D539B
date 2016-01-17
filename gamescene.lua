@@ -138,6 +138,20 @@ function pauseGame()
 
     pauseTimer()
 end
+
+--back to home button tap listener
+function backToHomeTapListener() 
+        print('Back to home button tap')
+        local options = {
+                    effect = 'fade',
+                    time = 500,
+                    params = {
+                        scoresData = userScoresData
+                    }
+        }
+        
+        composer.gotoScene('landingscene', options)
+end
 function endGame()
     timer.cancel(alienMovementTimerRef)
     --alien shots timer
@@ -149,18 +163,7 @@ function endGame()
     userScoresData = funcs.updateScoresData(userScoresData, score.text)      
     backToHomeButton.isVisible = true
     backToHomeButtonText.isVisible = true
-    backToHomeButtonText:addEventListener('tap', function() 
-        --print(userScoresData[1])
-        local options = {
-                    effect = 'fade',
-                    time = 500,
-                    params = {
-                        scoresData = userScoresData
-                    }
-        }
-        
-        composer.gotoScene('landingscene', options)
-    end)    
+    backToHomeButtonText:addEventListener('tap', backToHomeTapListener)    
 
     --funcs.writeJsonFile('player_data/player_data.json', topScores)
 end --endGame()
@@ -566,6 +569,7 @@ function scene:show(event)
             attackersNames = {'bigShip', 'smallShip1', 'smallShip2'}  
             -- get the alien ships, add them to the attackers array
             for k, v in pairs(attackersNames) do
+                
                 if (v=='bigShip') then
                     attackers[v] = display.newImage("assets/"..gameShips.alienShips.bigShip.image_path)
                     attackers[v].name = v
@@ -649,7 +653,6 @@ function scene:show(event)
     elseif (phase == 'did') then
         -- kickoff physics
         -- * physics envirionment * --
-        print('Phase is '..event.phase)
         if (gameShips) then
             -- playerShip events
             playerShip.touch = playerTouchHandler
@@ -671,8 +674,14 @@ function scene:hide(event)
     for i in ipairs(attackers) do
         display.remove(attackers[i])
     end
-        display.remove(playerShip)
+    display.remove(playerShip)
+    
+    gameOverScore.isVisible = false
+    gameOver.isVisible = false    
+    score.score = 0
     backToHomeButton.isVisible = false
+    backToHomeButtonText.isVisible = false
+    backToHomeButtonText:removeEventListener('tap', backToHomeTapListener)
 end
 
 -- scene:destroy
