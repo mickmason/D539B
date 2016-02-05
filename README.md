@@ -12,3 +12,12 @@ Please see the /mock-ups directory for the designs and then various HTML pages a
 
 ###Design
 I also produced the site and brand designs.
+
+##Corona platform game
+
+This is an assignment using the Corona mobile app development platform.
+
+I did a game - it's a go at one of the old arcade games. See Space War - A user and data model.pdf for a game and implementation description.
+
+If you want to run it you will need to get [Lua Glider](http://www.mydevelopersgames.com/Glider/).
+
