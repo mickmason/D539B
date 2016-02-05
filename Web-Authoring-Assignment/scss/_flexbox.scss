@@ -1,0 +1,9 @@
+
+@mixin flexbox() {
+	display: flex ;
+	flex-flow: row wrap ;
+}
+
+.flex-container {
+	@include flexbox ;
+}
