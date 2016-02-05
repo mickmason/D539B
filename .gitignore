@@ -1,3 +1,10 @@
+<<<<<<< HEAD
+#gitignore
+#.ai and .psd files
+*.ai
+*.psd
+
+=======
 #Ignore
 *.pdf
 *.doc
