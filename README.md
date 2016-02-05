@@ -10,5 +10,5 @@ Is an assignment to implement designs as HTML, CSS, JavaScript.
 In it I make heavy use of CSS flexbox. I also used SASS. 
 Please see the /mock-ups directory for the designs and then various HTML pages and /css/style.css
 
-##Design
+###Design
 I also produced the site and brand designs.
