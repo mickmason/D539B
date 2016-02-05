@@ -1,5 +1,13 @@
+<<<<<<< HEAD
 #gitignore
 #.ai and .psd files
 *.ai
 *.psd
 
+=======
+#Ignore
+*.pdf
+*.doc
+*.docx
+*.txt
+*.rar
