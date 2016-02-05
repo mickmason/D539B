@@ -1,0 +1,5 @@
+#gitignore
+#.ai and .psd files
+*.ai
+*.psd
+

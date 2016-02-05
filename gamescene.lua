@@ -164,8 +164,6 @@ function endGame()
     backToHomeButton.isVisible = true
     backToHomeButtonText.isVisible = true
     backToHomeButtonText:addEventListener('tap', backToHomeTapListener)    
-
-    --funcs.writeJsonFile('player_data/player_data.json', topScores)
 end --endGame()
 
 
